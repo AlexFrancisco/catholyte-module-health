@@ -1,0 +1,46 @@
+{% extends "layouts/base.html" %}
+{% block content %}
+<div class="card container col-md-6">
+    <div class="card-body">
+        <h1>Medications</h1>
+        <form method="POST">
+            {{ form.hidden_tag() }}
+            <div class="form-group">
+                {{ form.name.label }} {{ form.name(class="form-control") }}
+            </div>
+            <div class="form-group">
+                {{ form.dose.label }} {{ form.dose(class="form-control") }}
+            </div>
+            <div class="form-group">
+                {{ form.date.label }} {{ form.date(class="form-control") }}
+            </div>
+            {{ form.submit(class="btn btn-primary") }}
+        </form>
+        <hr>
+        <h2>Existing Medications</h2>
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Medication Name</th>
+                    <th>Dose</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for medication in medications %}
+                <tr>
+                    <td>{{ medication.name }}</td>
+                    <td>{{ medication.dose }}</td>
+                    <td>
+                        <!-- Delete Form -->
+                        <form action="{{ url_for('health_tracker.delete_medication', id=medication.id) }}" method="POST" style="display: inline;">
+                            <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('Are you sure you want to delete this medication?');">Delete</button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

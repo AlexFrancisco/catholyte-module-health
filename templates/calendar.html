@@ -1,0 +1,31 @@
+{% extends "layouts/base.html" %}
+{% block content %}
+<div class="card container col-md-8">
+    <div class="card-body">
+<h1>Health Calendar</h1>
+<div id="calendar"></div>
+</div></div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const calendarEl = document.getElementById('calendar');
+
+        const calendar = new FullCalendar.Calendar(calendarEl, {
+            initialView: 'dayGridMonth',
+            events: '/calendar-data',
+            eventDisplay: 'block',
+            eventColor: '#378006',
+            eventTextColor: '#ffffff',
+            headerToolbar: {
+                left: 'prev,next today',
+                center: 'title',
+                right: 'dayGridMonth,timeGridWeek,timeGridDay'
+            }
+        });
+
+        calendar.render();
+    });
+</script>
+{% endblock %}

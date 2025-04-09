@@ -1,0 +1,49 @@
+{% extends "layouts/base.html" %}
+{% block content %}
+<div class="card container col-md-6">
+    <div class="card-body">
+        <h1>Diet Entries</h1>
+        <form method="POST">
+            {{ form.hidden_tag() }}
+            <div class="form-group">
+                {{ form.meal_name.label }} {{ form.meal_name(class="form-control") }}
+            </div>
+            <div class="form-group">
+                {{ form.calories.label }} {{ form.calories(class="form-control") }}
+            </div>
+            <div class="form-group">
+                {{ form.date.label }} {{ form.date(class="form-control") }}
+            </div>
+            {{ form.submit(class="btn btn-primary") }}
+        </form>
+        <hr>
+        <h2>Existing Diet Entries</h2>
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Meal Name</th>
+                    <th>Calories</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for diet_entry in diet_entries %}
+                <tr>
+                    <td>{{ diet_entry.date }}</td>
+                    <td>{{ diet_entry.name }}</td>
+                    <td>{{ diet_entry.value }}</td>
+                    <td>
+                        <!-- Delete Form -->
+                        <form action="{{ url_for('health_tracker.delete_diet_entry', id=diet_entry.id) }}" method="POST" style="display: inline;">
+              
+                            <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('Are you sure you want to delete this entry?');">Delete</button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

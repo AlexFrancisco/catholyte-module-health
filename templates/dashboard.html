@@ -1,0 +1,35 @@
+{% extends "layouts/base.html" %}
+{% block content %}
+<div class="container mt-4">
+    <div class="jumbotron bg-light text-center">
+        <h1 class="display-4">Health Dashboard</h1>
+        <p class="lead">Your personal health overview.</p>
+    </div>
+
+    <div class="row">
+        <div class="col-md-4">
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <h5 class="card-title">Quick Actions</h5>
+                    <div class="d-grid gap-2">
+                        <a href="{{ url_for('health_tracker.exercises') }}" class="btn btn-primary"><i class="bi bi-activity"></i> Add Exercise</a>
+                        <a href="{{ url_for('health_tracker.diet') }}" class="btn btn-success"><i class="bi bi-apple"></i> Add Diet Entry</a>
+                        <a href="{{ url_for('health_tracker.glucose') }}" class="btn btn-warning"><i class="bi bi-droplet"></i> Add Glucose Reading</a>
+                        <a href="{{ url_for('health_tracker.measurements') }}" class="btn btn-info"><i class="bi bi-rulers"></i> Add Measurement</a>
+                        <a href="{{ url_for('health_tracker.documents') }}" class="btn btn-secondary"><i class="bi bi-file-earmark-text"></i> Add Document</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-8">
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <h5 class="card-title">Health Summary</h5>
+                    <p>Here you will see a summary of your health data.</p>
+                    <a href="{{ url_for('health_tracker.calendar') }}" class="btn btn-outline-primary"><i class="bi bi-calendar"></i> View Calendar</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

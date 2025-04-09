@@ -1,0 +1,22 @@
+<!-- Health Dropdown (Logged In Only) -->
+{% if current_user.is_authenticated %}
+    <li class="nav-item dropdown health-dropdown">
+        <a class="nav-link dropdown-toggle" href="#" id="healthDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+            Health
+        </a>
+        <ul class="dropdown-menu" aria-labelledby="healthDropdown">
+            <li><a class="dropdown-item" href="{{ url_for('health_tracker.health') }}"><i class="bi bi-speedometer2"></i>Dashboard</a></li>
+            <li><a class="dropdown-item" href="{{ url_for('health_tracker.calendar') }}"><i class="bi bi-calendar"></i>Calendar</a></li>
+            <!-- Separator -->
+            <div class="dropdown-divider"></div>
+            <li><a class="dropdown-item" href="{{ url_for('health_tracker.exercises') }}"><i class="bi bi-activity"></i> Exercise Library</a></li>
+            <li><a class="dropdown-item" href="{{ url_for('health_tracker.meal_plans') }}"><i class="bi bi-egg-fried"></i> Meal Plans</a></li>
+            <li><a class="dropdown-item" href="{{ url_for('health_tracker.diet') }}"><i class="bi bi-egg-fried"></i>Food Entries</a></li>
+            <li><a class="dropdown-item" href="{{ url_for('health_tracker.glucose') }}"><i class="bi bi-clipboard2-pulse-fill"></i>Glucose Readings</a></li>
+            <li><a class="dropdown-item" href="{{ url_for('health_tracker.medications') }}"><i class="bi bi-capsule-pill"></i>Medication List</a></li>
+            <li><a class="dropdown-item" href="{{ url_for('health_tracker.measurements') }}"><i class="bi bi-file-ruled"></i>Measurements</a></li>
+            <div class="dropdown-divider"></div>
+            <li><a class="dropdown-item" href="{{ url_for('health_tracker.documents') }}"><i class="bi bi-file-medical"></i>Medical Documents</a></li>
+        </ul>
+    </li>
+{% endif %}
