@@ -1,7 +1,7 @@
 from flask import render_template, redirect, url_for, flash, jsonify, current_app, request
 from flask_login import login_required, current_user
-from app.modules.health.forms import ExerciseForm, DietEntryForm, GlucoseReadingForm, MedicationForm, MeasurementForm, DocumentUploadForm, AppointmentForm
-from app.modules.health.models import HealthRecord, HealthDocument, Medication, Appointment
+from app.modules.health.forms import ExerciseForm, DietEntryForm, GlucoseReadingForm, MedicationForm, MeasurementForm, DocumentUploadForm, AppointmentForm, MedicalConditionForm
+from app.modules.health.models import HealthRecord, HealthDocument, Medication, Appointment, MedicalCondition
 from app import db
 from datetime import datetime
 from app.modules.health import health_tracker_bp
@@ -388,3 +388,59 @@ def delete_appointment(appointment_id):
     db.session.commit()
     flash('Appointment deleted successfully!', 'success')
     return redirect(url_for('health_tracker.appointments'))
+
+@health_tracker_bp.route('/conditions', methods=['GET', 'POST'])
+@login_required
+def conditions():
+    form = MedicalConditionForm()
+    
+    if form.validate_on_submit():
+        condition = MedicalCondition(
+            name=form.name.data,
+            condition_type=form.condition_type.data,
+            diagnosis_date=form.diagnosis_date.data,
+            diagnosing_provider=form.diagnosing_provider.data,
+            status=form.status.data,
+            severity=form.severity.data,
+            description=form.description.data,
+            symptoms=form.symptoms.data,
+            treatment_notes=form.treatment_notes.data,
+            user_id=current_user.id
+        )
+        db.session.add(condition)
+        db.session.commit()
+        flash('Medical condition added successfully!', 'success')
+        return redirect(url_for('health_tracker.conditions'))
+    
+    # Get all conditions for the current user
+    conditions = MedicalCondition.query.filter_by(user_id=current_user.id).order_by(MedicalCondition.name).all()
+    return render_template('conditions.html', form=form, conditions=conditions)
+
+@health_tracker_bp.route('/conditions/<int:condition_id>/edit', methods=['GET', 'POST'])
+@login_required
+def edit_condition(condition_id):
+    condition = MedicalCondition.query.filter_by(id=condition_id, user_id=current_user.id).first_or_404()
+    form = MedicalConditionForm(obj=condition)
+    
+    if form.validate_on_submit():
+        form.populate_obj(condition)
+        db.session.commit()
+        flash('Medical condition updated successfully!', 'success')
+        return redirect(url_for('health_tracker.conditions'))
+    
+    return render_template('edit_condition.html', form=form, condition=condition)
+
+@health_tracker_bp.route('/conditions/<int:condition_id>/delete', methods=['POST'])
+@login_required
+def delete_condition(condition_id):
+    condition = MedicalCondition.query.filter_by(id=condition_id, user_id=current_user.id).first_or_404()
+    db.session.delete(condition)
+    db.session.commit()
+    flash('Medical condition deleted successfully!', 'success')
+    return redirect(url_for('health_tracker.conditions'))
+
+@health_tracker_bp.route('/conditions/<int:condition_id>', methods=['GET'])
+@login_required
+def view_condition(condition_id):
+    condition = MedicalCondition.query.filter_by(id=condition_id, user_id=current_user.id).first_or_404()
+    return render_template('view_condition.html', condition=condition)

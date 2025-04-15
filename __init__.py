@@ -20,6 +20,9 @@ def inject_template_vars():
         # Add breadcrumbs for appointments
         'health_tracker.appointments': [('Health Dashboard', 'health_tracker.health'), ('Appointments', None)],
         'health_tracker.edit_appointment': [('Health Dashboard', 'health_tracker.health'), ('Appointments', 'health_tracker.appointments'), ('Edit Appointment', None)],
+        'health_tracker.conditions': [('Health Dashboard', 'health_tracker.health'), ('Medical Conditions', None)],
+        'health_tracker.edit_condition': [('Health Dashboard', 'health_tracker.health'), ('Medical Conditions', 'health_tracker.conditions'), ('Edit Condition', None)],
+        'health_tracker.view_condition': [('Health Dashboard', 'health_tracker.health'), ('Medical Conditions', 'health_tracker.conditions'), ('View Condition', None)],
     }
     
     # Get current endpoint

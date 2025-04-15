@@ -1,0 +1,87 @@
+{% extends "layouts/health_base.html" %}
+{% block health_content %}
+<div class="row justify-content-center">
+    <div class="col-lg-10">
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-primary text-white">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h4 class="mb-0"><i class="bi bi-clipboard-pulse"></i> {{ condition.name }}</h4>
+                    <div>
+                        <a href="{{ url_for('health_tracker.edit_condition', condition_id=condition.id) }}" class="btn btn-sm btn-light">
+                            <i class="bi bi-pencil"></i> Edit
+                        </a>
+                        <a href="{{ url_for('health_tracker.conditions') }}" class="btn btn-sm btn-light ms-2">
+                            <i class="bi bi-list"></i> All Conditions
+                        </a>
+                    </div>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="row mb-4">
+                    <div class="col-md-4">
+                        <div class="mb-3">
+                            <h6>Condition Type</h6>
+                            <p>{{ condition.condition_type|capitalize if condition.condition_type else "Not specified" }}</p>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="mb-3">
+                            <h6>Status</h6>
+                            <p>
+                                {% if condition.status == 'active' %}
+                                <span class="badge bg-danger">Active</span>
+                                {% elif condition.status == 'in_remission' %}
+                                <span class="badge bg-warning">In Remission</span>
+                                {% elif condition.status == 'resolved' %}
+                                <span class="badge bg-success">Resolved</span>
+                                {% endif %}
+                                
+                                {% if condition.severity %}
+                                <span class="badge bg-light text-dark">{{ condition.severity|capitalize }}</span>
+                                {% endif %}
+                            </p>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="mb-3">
+                            <h6>Diagnosed</h6>
+                            <p>
+                                {% if condition.diagnosis_date %}
+                                {{ condition.diagnosis_date.strftime('%B %d, %Y') }}
+                                {% else %}
+                                <span class="text-muted">Unknown</span>
+                                {% endif %}
+                                
+                                {% if condition.diagnosing_provider %}
+                                <br><small class="text-muted">By: {{ condition.diagnosing_provider }}</small>
+                                {% endif %}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                
+                <hr>
+                
+                <div class="row">
+                    <div class="col-md-12">
+                        <h5 class="mb-3">Description</h5>
+                        <div class="p-3 bg-light rounded mb-4">
+                            {{ condition.description or "No description provided." }}
+                        </div>
+                        
+                        <h5 class="mb-3">Symptoms</h5>
+                        <div class="p-3 bg-light rounded mb-4">
+                            {{ condition.symptoms or "No symptoms listed." }}
+                        </div>
+                        
+                        <h5 class="mb-3">Treatment Notes</h5>
+                        <div class="p-3 bg-light rounded mb-4">
+                            {{ condition.treatment_notes or "No treatment notes provided." }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

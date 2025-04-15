@@ -1,7 +1,8 @@
 from flask_wtf import FlaskForm
-from wtforms import StringField, SubmitField, IntegerField, FloatField, TextAreaField, BooleanField, SelectField, DateTimeField
+from wtforms import StringField, SubmitField, IntegerField, FloatField, TextAreaField, BooleanField, SelectField, DateTimeField, DateField
 from wtforms.validators import DataRequired, Optional, Length
 from flask_wtf.file import FileField, FileAllowed
+from datetime import datetime
 
 class MedicationForm(FlaskForm):
     name = StringField('Medication Name', validators=[DataRequired(), Length(max=128)])
@@ -63,3 +64,69 @@ class AppointmentForm(FlaskForm):
         ('canceled', 'Canceled')
     ], default='scheduled')
     submit = SubmitField('Save Appointment')
+
+class MedicalConditionForm(FlaskForm):
+    name = StringField('Condition Name', validators=[DataRequired(), Length(max=128)])
+    condition_type = SelectField('Condition Type', choices=[
+        ('', 'Select Type'),
+        ('chronic', 'Chronic'),
+        ('acute', 'Acute'),
+        ('genetic', 'Genetic'),
+        ('autoimmune', 'Autoimmune'),
+        ('infectious', 'Infectious'),
+        ('injury', 'Injury/Trauma'),
+        ('mental_health', 'Mental Health'),
+        ('other', 'Other')
+    ], validators=[Optional()])
+    diagnosis_date = DateField('Date of Diagnosis', format='%Y-%m-%d', validators=[Optional()])
+    diagnosing_provider = StringField('Diagnosing Provider', validators=[Optional(), Length(max=128)])
+    status = SelectField('Current Status', choices=[
+        ('active', 'Active'),
+        ('in_remission', 'In Remission'),
+        ('resolved', 'Resolved')
+    ], default='active')
+    severity = SelectField('Severity', choices=[
+        ('', 'Select Severity'),
+        ('mild', 'Mild'),
+        ('moderate', 'Moderate'),
+        ('severe', 'Severe')
+    ], validators=[Optional()])
+    description = TextAreaField('Description', validators=[Optional()])
+    symptoms = TextAreaField('Common Symptoms', validators=[Optional()])
+    treatment_notes = TextAreaField('Treatment Notes', validators=[Optional()])
+    submit = SubmitField('Save Condition')
+
+class HealthGoalForm(FlaskForm):
+    title = StringField('Goal Title', validators=[DataRequired(), Length(max=128)])
+    goal_type = SelectField('Goal Type', choices=[
+        ('weight', 'Weight Management'),
+        ('exercise', 'Exercise/Fitness'),
+        ('nutrition', 'Nutrition'),
+        ('medication', 'Medication Adherence'),
+        ('habit', 'Habit Formation/Breaking'),
+        ('sleep', 'Sleep Improvement'),
+        ('general', 'General Health'),
+        ('other', 'Other')
+    ], validators=[DataRequired()])
+    
+    target_value = FloatField('Target Value (if applicable)', validators=[Optional()])
+    target_unit = StringField('Unit of Measurement', validators=[Optional(), Length(max=64)])
+    frequency = StringField('Frequency (e.g., daily, 3x per week)', validators=[Optional(), Length(max=64)])
+    
+    description = TextAreaField('Goal Description', validators=[Optional()])
+    motivation = TextAreaField('Motivation (Why is this goal important?)', validators=[Optional()])
+    action_plan = TextAreaField('Action Plan (Steps to achieve this goal)', validators=[Optional()])
+    
+    start_date = DateField('Start Date', format='%Y-%m-%d', default=datetime.utcnow().date(), validators=[DataRequired()])
+    target_date = DateField('Target Completion Date', format='%Y-%m-%d', validators=[Optional()])
+    
+    current_value = FloatField('Current Progress Value', validators=[Optional()])
+    progress_notes = TextAreaField('Progress Notes', validators=[Optional()])
+    
+    status = SelectField('Status', choices=[
+        ('active', 'Active'),
+        ('completed', 'Completed'),
+        ('abandoned', 'Abandoned')
+    ], default='active')
+    
+    submit = SubmitField('Save Goal')
