@@ -1,46 +1,202 @@
-{% extends "layouts/base.html" %}
-{% block content %}
-<div class="card container col-md-6">
-    <div class="card-body">
-        <h1>Medications</h1>
-        <form method="POST">
-            {{ form.hidden_tag() }}
-            <div class="form-group">
-                {{ form.name.label }} {{ form.name(class="form-control") }}
+{% extends "layouts/health_base.html" %}
+{% block health_content %}
+<div class="row">
+    <!-- Quick Actions Card -->
+    <div class="col-lg-4">
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-primary text-white">
+                <h4 class="mb-0"><i class="bi bi-capsule"></i> Medications</h4>
             </div>
-            <div class="form-group">
-                {{ form.dose.label }} {{ form.dose(class="form-control") }}
+            <div class="card-body">
+                <p>Track and manage your medications with detailed information about dosage, timing, and instructions.</p>
+                <div class="d-grid gap-2">
+                    <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addMedicationModal">
+                        <i class="bi bi-plus-circle"></i> Add New Medication
+                    </button>
+                    <a href="{{ url_for('health_tracker.health') }}" class="btn btn-outline-secondary">
+                        <i class="bi bi-arrow-left"></i> Back to Dashboard
+                    </a>
+                </div>
+                
+                <!-- Medication Stats -->
+                {% if medications %}
+                <div class="mt-4">
+                    <h5>Statistics</h5>
+                    <div class="small text-muted mb-2">Active medications: {{ medications|selectattr('active', 'equalto', true)|list|length }}</div>
+                    <div class="small text-muted mb-2">Total medications: {{ medications|length }}</div>
+                </div>
+                {% endif %}
             </div>
-            <div class="form-group">
-                {{ form.date.label }} {{ form.date(class="form-control") }}
+        </div>
+    </div>
+
+    <!-- Medications List Card -->
+    <div class="col-lg-8">
+        <div class="card shadow-sm">
+            <div class="card-header bg-primary text-white">
+                <h4 class="mb-0"><i class="bi bi-list-check"></i> Current Medications</h4>
             </div>
-            {{ form.submit(class="btn btn-primary") }}
-        </form>
-        <hr>
-        <h2>Existing Medications</h2>
-        <table class="table">
-            <thead>
-                <tr>
-                    <th>Medication Name</th>
-                    <th>Dose</th>
-                    <th>Actions</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for medication in medications %}
-                <tr>
-                    <td>{{ medication.name }}</td>
-                    <td>{{ medication.dose }}</td>
-                    <td>
-                        <!-- Delete Form -->
-                        <form action="{{ url_for('health_tracker.delete_medication', id=medication.id) }}" method="POST" style="display: inline;">
-                            <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('Are you sure you want to delete this medication?');">Delete</button>
-                        </form>
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+            <div class="card-body">
+                {% if medications %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Medication</th>
+                                <th>Timing & Dosage</th>
+                                <th>Instructions</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for med in medications %}
+                            <tr>
+                                <td>
+                                    <strong>{{ med.name }}</strong>
+                                    <p class="text-muted small mb-0">{{ med.strength }}</p>
+                                </td>
+                                <td>
+                                    <div>{{ med.timing }}</div>
+                                    <small class="text-muted">{{ med.dosage_schedule }}</small>
+                                </td>
+                                <td>
+                                    <span class="badge bg-light text-dark mb-1">{{ med.food_relation }}</span>
+                                    <a href="#" class="ms-1 small text-primary" data-bs-toggle="tooltip" title="{{ med.description }}">
+                                        <i class="bi bi-info-circle"></i>
+                                    </a>
+                                </td>
+                                <td>
+                                    {% if med.active %}
+                                    <span class="badge bg-success">Active</span>
+                                    {% else %}
+                                    <span class="badge bg-secondary">Inactive</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <div class="btn-group">
+                                        <a href="{{ url_for('health_tracker.edit_medication', medication_id=med.id) }}" class="btn btn-sm btn-outline-primary">
+                                            <i class="bi bi-pencil"></i>
+                                        </a>
+                                        <!-- Delete Form -->
+                                        <form action="{{ url_for('health_tracker.delete_medication', medication_id=med.id) }}" method="POST" class="d-inline">
+                                            <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('Are you sure you want to delete this medication?');">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        </form>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="alert alert-info">
+                    <i class="bi bi-info-circle"></i> No medications added yet. Use the form to add your first medication.
+                </div>
+                {% endif %}
+            </div>
+        </div>
     </div>
 </div>
+
+<!-- Add Medication Modal -->
+<div class="modal fade" id="addMedicationModal" tabindex="-1" aria-labelledby="addMedicationModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="addMedicationModalLabel"><i class="bi bi-capsule"></i> Add New Medication</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form method="POST">
+                    {{ form.hidden_tag() }}
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                {{ form.name.label(class="form-label") }}
+                                {{ form.name(class="form-control") }}
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                {{ form.strength.label(class="form-label") }}
+                                {{ form.strength(class="form-control") }}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                {{ form.dosage_schedule.label(class="form-label") }}
+                                {{ form.dosage_schedule(class="form-control") }}
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                {{ form.timing.label(class="form-label") }}
+                                {{ form.timing(class="form-control") }}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        {{ form.food_relation.label(class="form-label") }}
+                        {{ form.food_relation(class="form-control") }}
+                    </div>
+                    
+                    <div class="mb-3">
+                        {{ form.description.label(class="form-label") }}
+                        {{ form.description(class="form-control", rows=3) }}
+                    </div>
+                    
+                    <div class="mb-3">
+                        {{ form.pill_description.label(class="form-label") }}
+                        {{ form.pill_description(class="form-control") }}
+                    </div>
+                    
+                    <div class="mb-3 form-check">
+                        {{ form.active(class="form-check-input") }}
+                        {{ form.active.label(class="form-check-label") }}
+                    </div>
+                    
+                    <div class="modal-footer px-0 pb-0">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        {{ form.submit(class="btn btn-primary") }}
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Medication Details Modal -->
+<div class="modal fade" id="medicationDetailModal" tabindex="-1" aria-labelledby="medicationDetailModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="medicationDetailModalLabel">Medication Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <!-- Content will be filled dynamically -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Initialize tooltips
+    document.addEventListener('DOMContentLoaded', function() {
+        var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
+        var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+            return new bootstrap.Tooltip(tooltipTriggerEl)
+        });
+    });
+</script>
 {% endblock %}

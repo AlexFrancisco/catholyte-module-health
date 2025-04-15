@@ -1,5 +1,5 @@
-{% extends "layouts/base.html" %}
-{% block content %}
+{% extends "layouts/health_base.html" %}
+{% block health_content %}
 <div class="container mt-4">
     <div class="jumbotron bg-light text-center">
         <h1 class="display-4">Health Dashboard</h1>
@@ -8,25 +8,188 @@
 
     <div class="row">
         <div class="col-md-4">
-            <div class="card shadow-sm">
+            <div class="card shadow-sm mb-4">
                 <div class="card-body">
                     <h5 class="card-title">Quick Actions</h5>
                     <div class="d-grid gap-2">
                         <a href="{{ url_for('health_tracker.exercises') }}" class="btn btn-primary"><i class="bi bi-activity"></i> Add Exercise</a>
                         <a href="{{ url_for('health_tracker.diet') }}" class="btn btn-success"><i class="bi bi-apple"></i> Add Diet Entry</a>
                         <a href="{{ url_for('health_tracker.glucose') }}" class="btn btn-warning"><i class="bi bi-droplet"></i> Add Glucose Reading</a>
-                        <a href="{{ url_for('health_tracker.measurements') }}" class="btn btn-info"><i class="bi bi-rulers"></i> Add Measurement</a>
-                        <a href="{{ url_for('health_tracker.documents') }}" class="btn btn-secondary"><i class="bi bi-file-earmark-text"></i> Add Document</a>
+                        <a href="{{ url_for('health_tracker.medications') }}" class="btn btn-danger"><i class="bi bi-capsule"></i> Manage Medications</a>
+                        <a href="{{ url_for('health_tracker.appointments') }}" class="btn btn-info"><i class="bi bi-calendar-check"></i> Manage Appointments</a>
+                        <a href="{{ url_for('health_tracker.measurements') }}" class="btn btn-secondary"><i class="bi bi-rulers"></i> Add Measurement</a>
+                        <a href="{{ url_for('health_tracker.documents') }}" class="btn btn-dark"><i class="bi bi-file-earmark-text"></i> Add Document</a>
                     </div>
                 </div>
             </div>
         </div>
         <div class="col-md-8">
-            <div class="card shadow-sm">
+            <!-- Exercise Summary -->
+            <div class="card shadow-sm mb-3">
+                <div class="card-header bg-primary text-white">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0"><i class="bi bi-activity"></i> Exercise Summary</h5>
+                        <a href="{{ url_for('health_tracker.exercises') }}" class="btn btn-sm btn-light">View All</a>
+                    </div>
+                </div>
                 <div class="card-body">
-                    <h5 class="card-title">Health Summary</h5>
-                    <p>Here you will see a summary of your health data.</p>
-                    <a href="{{ url_for('health_tracker.calendar') }}" class="btn btn-outline-primary"><i class="bi bi-calendar"></i> View Calendar</a>
+                    {% set exercise_records = health_records|selectattr('type', 'equalto', 'exercise')|list %}
+                    {% if exercise_records %}
+                        <div class="small text-muted mb-2">Recent activities:</div>
+                        <ul class="list-unstyled">
+                            {% for record in exercise_records[:2] %}
+                                <li class="mb-1"><strong>{{ record.name }}</strong> - {{ record.duration }} minutes</li>
+                            {% endfor %}
+                        </ul>
+                        <div class="small text-muted">Total this week: {{ exercise_records|sum(attribute='duration') }} minutes</div>
+                    {% else %}
+                        <p class="text-muted mb-0">No recent exercise data. Start tracking your workouts!</p>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <!-- Medication Summary -->
+            <div class="card shadow-sm mb-3">
+                <div class="card-header bg-danger text-white">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0"><i class="bi bi-capsule"></i> Medication Summary</h5>
+                        <a href="{{ url_for('health_tracker.medications') }}" class="btn btn-sm btn-light">View All</a>
+                    </div>
+                </div>
+                <div class="card-body">
+                    {% if medications %}
+                        <div class="row">
+                            <div class="col-6">
+                                <div class="small text-muted">Active medications:</div>
+                                <h4>{{ medications|selectattr('active', 'equalto', true)|list|length }}</h4>
+                            </div>
+                            <div class="col-6">
+                                <div class="small text-muted">Total medications:</div>
+                                <h4>{{ medications|length }}</h4>
+                            </div>
+                        </div>
+                        <div class="small text-muted mt-2">Recently active:</div>
+                        <ul class="list-unstyled">
+                            {% for med in medications|selectattr('active', 'equalto', true) %}
+                                <li><i class="bi bi-check-circle-fill text-success me-1"></i> {{ med.name }} ({{ med.strength }})</li>
+                            {% endfor %}
+                        </ul>
+                    {% else %}
+                        <p class="text-muted mb-0">No medications tracked yet. Add your first medication.</p>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <!-- Appointments Summary -->
+            <div class="card shadow-sm mb-3">
+                <div class="card-header bg-info text-white">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0"><i class="bi bi-calendar-check"></i> Upcoming Appointments</h5>
+                        <a href="{{ url_for('health_tracker.appointments') }}" class="btn btn-sm btn-light">View All</a>
+                    </div>
+                </div>
+                <div class="card-body">
+                    {% if appointments and appointments|selectattr('date', 'gt', now)|list|length > 0 %}
+                        {% set upcoming = appointments|selectattr('date', 'gt', now)|list %}
+                        <div class="small text-muted mb-2">Next {{ upcoming|length if upcoming|length < 3 else "3" }} appointments:</div>
+                        <ul class="list-unstyled">
+                            {% for appt in upcoming|sort(attribute='date') %}
+                                <li class="mb-2">
+                                    <div><strong>{{ appt.title }}</strong> ({{ appt.appointment_type|capitalize }})</div>
+                                    <div class="small text-muted">
+                                        {{ appt.date.strftime('%b %d, %Y at %I:%M %p') }}
+                                        {% if appt.virtual %}<i class="bi bi-camera-video ms-1" title="Virtual"></i>{% endif %}
+                                    </div>
+                                </li>
+                            {% endfor %}
+                        </ul>
+                    {% else %}
+                        <p class="text-muted mb-0">No upcoming appointments scheduled.</p>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <!-- Glucose & Measurements Summary -->
+            <div class="card shadow-sm mb-3">
+                <div class="card-header bg-warning text-white">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0"><i class="bi bi-graph-up"></i> Health Metrics</h5>
+                        <div>
+                            <a href="{{ url_for('health_tracker.glucose') }}" class="btn btn-sm btn-light me-1">Glucose</a>
+                            <a href="{{ url_for('health_tracker.measurements') }}" class="btn btn-sm btn-light">Measurements</a>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            {% set glucose_records = health_records|selectattr('type', 'equalto', 'glucose')|list %}
+                            <h6>Glucose Readings</h6>
+                            {% if glucose_records %}
+                                {% set last_glucose = glucose_records|sort(attribute='date')|last %}
+                                <div class="small text-muted">Latest reading:</div>
+                                <h4>{{ last_glucose.value }} <small class="text-muted">mg/dL</small></h4>
+                                <div class="small text-muted">{{ last_glucose.date }}</div>
+                            {% else %}
+                                <p class="text-muted">No glucose data recorded</p>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-6">
+                            {% set weight_records = health_records|selectattr('type', 'equalto', 'measurement')|selectattr('name', 'equalto', 'Weight')|list %}
+                            <h6>Weight</h6>
+                            {% if weight_records %}
+                                {% set last_weight = weight_records|sort(attribute='date')|last %}
+                                <div class="small text-muted">Latest measurement:</div>
+                                <h4>{{ last_weight.value }} <small class="text-muted">lbs</small></h4>
+                                <div class="small text-muted">{{ last_weight.date }}</div>
+                            {% else %}
+                                <p class="text-muted">No weight data recorded</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Featured Meal Plans -->
+            <div class="card shadow-sm mb-3">
+                <div class="card-header bg-success text-white">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0"><i class="bi bi-basket"></i> Featured Meal Plans</h5>
+                        <a href="{{ url_for('health_tracker.diet') }}" class="btn btn-sm btn-light">View All</a>
+                    </div>
+                </div>
+                <div class="card-body">
+                    {% if meal_plans %}
+                        <div class="small text-muted mb-2">Recommended meal plans:</div>
+                        <div class="row">
+                            {% for plan in meal_plans %}
+                                <div class="col-md-6 mb-2">
+                                    <div class="card h-100 border-light">
+                                        <div class="card-body p-2">
+                                            <h6 class="mb-1">{{ plan.name }}</h6>
+                                            <div class="small text-muted">{{ plan.content|safe }}</div>
+                                            <div class="mt-2">
+                                                <span class="badge bg-light text-dark">{{ plan.calories }} cal</span>
+                                                {% if plan.tags %}
+                                                    {% for tag in plan.tags %}
+                                                        <span class="badge bg-success text-white">{{ tag }}</span>
+                                                    {% endfor %}
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="text-center py-3">
+                            <i class="bi bi-clipboard-check text-muted" style="font-size: 2rem;"></i>
+                            <p class="text-muted mb-0 mt-2">No featured meal plans available yet.</p>
+                            <a href="{{ url_for('health_tracker.diet') }}" class="btn btn-sm btn-outline-success mt-2">
+                                <i class="bi bi-plus-circle"></i> Create Meal Plan
+                            </a>
+                        </div>
+                    {% endif %}
                 </div>
             </div>
         </div>
