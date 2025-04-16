@@ -3,17 +3,38 @@ from datetime import datetime
 
 class HealthRecord(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    type = db.Column(db.String(50), nullable=False)  # Type of health record (e.g., 'exercise', 'diet', 'glucose', 'medication', 'measurement')
-    name = db.Column(db.String(128), nullable=True)  # Name of the exercise, meal, medication, etc.
-    value = db.Column(db.Float, nullable=True)  # Numeric value (e.g., calories, glucose level, weight)
-    duration = db.Column(db.Integer, nullable=True)  # Duration in minutes (for exercises)
-    dose = db.Column(db.String(64), nullable=True)  # Dose (for medications)
-    date = db.Column(db.String(64), nullable=False)  # Date of the record
-    content = db.Column(db.Text, nullable=True)  # Additional HTML content (e.g., meal description, exercise details)
+    type = db.Column(db.String(50), nullable=False)  # Type of health record
+    name = db.Column(db.String(128), nullable=True)
+    value = db.Column(db.Float, nullable=True)
+    duration = db.Column(db.Integer, nullable=True)
+    dose = db.Column(db.String(64), nullable=True)
+    date = db.Column(db.String(64), nullable=False)
+    content = db.Column(db.Text, nullable=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-
+    
+    # Images relationship
+    images = db.relationship('HealthRecordImage', back_populates='record', cascade='all, delete-orphan')
+    
     def __repr__(self):
-        return f"HealthRecord('{self.type}', '{self.name}', '{self.value}', '{self.date}', '{self.content}')"
+        return f"HealthRecord('{self.type}', '{self.name}', '{self.date}')"
+    
+    @property
+    def primary_image(self):
+        """Return the primary image or first image if no primary set"""
+        primary = next((img for img in self.images if img.is_primary), None)
+        return primary or (self.images[0] if self.images else None)
+
+
+class HealthRecordImage(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    image_url = db.Column(db.String(255), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    is_primary = db.Column(db.Boolean, default=False)
+    prompt = db.Column(db.String(255), nullable=True)  # Store the prompt used to generate the image
+    
+    # Relationship with health record
+    record_id = db.Column(db.Integer, db.ForeignKey('health_record.id', ondelete='CASCADE'), nullable=False)
+    record = db.relationship('HealthRecord', back_populates='images')
 
 class HealthDocument(db.Model):
     id = db.Column(db.Integer, primary_key=True)

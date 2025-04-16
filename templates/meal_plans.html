@@ -8,61 +8,373 @@
         </ol>
     </nav>
     
-    <!-- Title Card -->
+    <!-- Title Card with Filter/Sort Options -->
     <div class="card mb-4">
         <div class="card-body">
-            <div class="d-flex justify-content-between align-items-center">
+            <div class="d-flex justify-content-between align-items-center mb-3">
                 <h1 class="mb-0">Meal Plans</h1>
-                <a href="{{ url_for('health_tracker.health') }}" class="btn btn-outline-secondary">
-                    <i class="fas fa-arrow-left"></i> Back to Health Dashboard
-                </a>
+                <div>
+                    <a href="{{ url_for('health_tracker.create_meal_plan') }}" class="btn btn-primary me-2">
+                        <i class="fas fa-plus"></i> New Plan
+                    </a>
+                    <a href="{{ url_for('health_tracker.health') }}" class="btn btn-outline-secondary">
+                        <i class="fas fa-arrow-left"></i> Back
+                    </a>
+                </div>
+            </div>
+            
+            <!-- Filter and Sort Controls -->
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <div class="input-group">
+                        <span class="input-group-text"><i class="fas fa-search"></i></span>
+                        <input type="text" id="mealPlanSearch" class="form-control" placeholder="Search meal plans...">
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <select id="mealPlanSort" class="form-select">
+                        <option value="date-desc">Date (Newest First)</option>
+                        <option value="date-asc">Date (Oldest First)</option>
+                        <option value="name-asc">Name (A-Z)</option>
+                        <option value="name-desc">Name (Z-A)</option>
+                    </select>
+                </div>
+                <div class="col-md-5">
+                    <div class="btn-group w-100" role="group">
+                        <input type="radio" class="btn-check" name="timeFilter" id="all" checked>
+                        <label class="btn btn-outline-primary" for="all">All</label>
+                        
+                        <input type="radio" class="btn-check" name="timeFilter" id="thisWeek">
+                        <label class="btn btn-outline-primary" for="thisWeek">This Week</label>
+                        
+                        <input type="radio" class="btn-check" name="timeFilter" id="thisMonth">
+                        <label class="btn btn-outline-primary" for="thisMonth">This Month</label>
+                        
+                        <input type="radio" class="btn-check" name="timeFilter" id="upcoming">
+                        <label class="btn btn-outline-primary" for="upcoming">Upcoming</label>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
     
     {% if meal_plans %}
-        <div class="row row-cols-1 row-cols-md-2 g-4">
+        <div id="mealPlanContainer" class="row row-cols-1 row-cols-md-3 g-3">
             {% for plan in meal_plans %}
-            <div class="col">
+            <div class="col meal-plan-item" data-date="{{ plan.date }}" data-name="{{ plan.name|default('Unnamed Plan', true) }}">
                 <div class="card h-100 meal-plan-card">
-                    <div class="card-header bg-primary text-white meal-plan-header">
-                        <h5 class="card-title mb-0">{{ plan.name or 'Meal Plan' }}</h5>
-                        <span class="badge bg-light text-dark meal-plan-date">{{ plan.date }}</span>
+                    <div class="position-relative">
+                        {% if plan.images %}
+                        <!-- Simplified Image Display -->
+                        <div class="meal-plan-thumbnail">
+                            <img src="{{ plan.primary_image.image_url if plan.primary_image else plan.images[0].image_url }}" 
+                                 class="card-img-top" alt="{{ plan.name }}">
+                            
+                            <!-- Image count badge if multiple images -->
+                            {% if plan.images|length > 1 %}
+                            <span class="position-absolute top-0 end-0 badge rounded-pill bg-dark m-2" 
+                                  data-bs-toggle="tooltip" title="Click to view all images">
+                                <i class="fas fa-images"></i> {{ plan.images|length }}
+                            </span>
+                            {% endif %}
+                        </div>
+                        {% endif %}
                     </div>
-                    <div class="card-body">
-                        <div class="meal-plan-content">
-                            {{ plan.content|safe }}
+                    
+                    <!-- Compact Header -->
+                    <div class="card-body py-2 px-3">
+                        <h5 class="card-title mb-1 text-truncate">{{ plan.name or 'Meal Plan' }}</h5>
+                        
+                        <!-- Preview of content - truncated -->
+                        <div class="card-text small meal-plan-preview">
+                            {% set content_text = plan.content|striptags %}
+                            {{ content_text[:80] + '...' if content_text|length > 80 else content_text }}
                         </div>
                     </div>
-                    <div class="card-footer d-flex justify-content-between align-items-center bg-white">
-                        <span class="text-muted small">
-                            <i class="fas fa-calendar-alt me-1"></i> Added on {{ plan.created_at|default(plan.date, true) }}
-                        </span>
-                        <form action="{{ url_for('health_tracker.delete_meal_plan', id=plan.id) }}" method="POST">
-                            <button type="submit" class="btn btn-outline-danger btn-sm" 
-                                    onclick="return confirm('Are you sure you want to delete this meal plan?')">
-                                <i class="fas fa-trash"></i> Delete
+                    
+                    <!-- Action Footer -->
+                    <div class="card-footer p-2 d-flex justify-content-between align-items-center bg-white">
+                        <div class="btn-group btn-group-sm">
+                            <!-- View Details Button -->
+                            <button type="button" class="btn btn-outline-info view-meal-plan" 
+                                    data-bs-toggle="modal" data-bs-target="#mealPlanModal{{ plan.id }}"
+                                    data-bs-placement="top" title="View Details">
+                                <i class="fas fa-eye"></i>
                             </button>
-                        </form>
+                            
+                            <!-- Edit Button -->
+                            <a href="{{ url_for('health_tracker.edit_meal_plan', id=plan.id) }}" 
+                               class="btn btn-outline-secondary"
+                               data-bs-toggle="tooltip" data-bs-placement="top" title="Edit Plan">
+                                <i class="fas fa-edit"></i>
+                            </a>
+                            
+                            <!-- Generate Image Button -->
+                            <form action="{{ url_for('health_tracker.generate_meal_plan_image', id=plan.id) }}" method="POST" class="d-inline">
+                                <button type="submit" class="btn btn-outline-primary"
+                                        data-bs-toggle="tooltip" data-bs-placement="top" 
+                                        title="{% if plan.images %}Add New Image{% else %}Generate Image{% endif %}">
+                                    <i class="fas fa-{% if plan.images %}camera{% else %}image{% endif %}"></i>
+                                </button>
+                            </form>
+                            
+                            <!-- Delete Button -->
+                            <form action="{{ url_for('health_tracker.delete_meal_plan', id=plan.id) }}" method="POST" class="d-inline">
+                                <button type="submit" class="btn btn-outline-danger" 
+                                        onclick="return confirm('Are you sure you want to delete this meal plan?')"
+                                        data-bs-toggle="tooltip" data-bs-placement="top" title="Delete Plan">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </form>
+                        </div>
+                        
+                        <!-- Date Badge -->
+                        <span class="badge bg-light text-dark">
+                            <i class="fas fa-calendar-day"></i> {{ plan.date }}
+                        </span>
+                    </div>
+                </div>
+                
+                <!-- Modal for expanded view -->
+                <div class="modal fade" id="mealPlanModal{{ plan.id }}" tabindex="-1" aria-hidden="true">
+                    <div class="modal-dialog modal-lg">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title">{{ plan.name or 'Meal Plan' }}</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                            </div>
+                            <div class="modal-body">
+                                {% if plan.images %}
+                                <!-- Image Carousel in Modal -->
+                                <div id="modalCarousel{{ plan.id }}" class="carousel slide mb-3" data-bs-ride="carousel">
+                                    <div class="carousel-inner">
+                                        {% for image in plan.images %}
+                                        <div class="carousel-item {% if image.is_primary %}active{% endif %}">
+                                            <div class="meal-plan-modal-image-container">
+                                                <img src="{{ image.image_url }}" class="d-block w-100" alt="{{ plan.name }}">
+                                                <div class="image-actions-overlay">
+                                                    <div class="btn-group">
+                                                        {% if not image.is_primary %}
+                                                        <form action="{{ url_for('health_tracker.set_primary_meal_plan_image', record_id=plan.id, image_id=image.id) }}" method="POST">
+                                                            <button type="submit" class="btn btn-sm btn-light" title="Set as primary">
+                                                                <i class="fas fa-star"></i>
+                                                            </button>
+                                                        </form>
+                                                        {% endif %}
+                                                        <form action="{{ url_for('health_tracker.delete_meal_plan_image', record_id=plan.id, image_id=image.id) }}" method="POST">
+                                                            <button type="submit" class="btn btn-sm btn-light" title="Delete image" onclick="return confirm('Delete this image?')">
+                                                                <i class="fas fa-trash"></i>
+                                                            </button>
+                                                        </form>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        {% endfor %}
+                                    </div>
+                                    {% if plan.images|length > 1 %}
+                                    <button class="carousel-control-prev" type="button" data-bs-target="#modalCarousel{{ plan.id }}" data-bs-slide="prev">
+                                        <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+                                        <span class="visually-hidden">Previous</span>
+                                    </button>
+                                    <button class="carousel-control-next" type="button" data-bs-target="#modalCarousel{{ plan.id }}" data-bs-slide="next">
+                                        <span class="carousel-control-next-icon" aria-hidden="true"></span>
+                                        <span class="visually-hidden">Next</span>
+                                    </button>
+                                    {% endif %}
+                                </div>
+                                {% endif %}
+                                
+                                <div class="meal-plan-content">
+                                    {{ plan.content|safe }}
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                                <a href="{{ url_for('health_tracker.edit_meal_plan', id=plan.id) }}" class="btn btn-primary">Edit</a>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
             {% endfor %}
         </div>
+        
+        <!-- No Results Message (initially hidden) -->
+        <div id="noResultsMessage" class="alert alert-info mt-3" style="display: none;">
+            <div class="d-flex align-items-center">
+                <i class="fas fa-info-circle me-3 fs-4"></i>
+                <div>
+                    <h5 class="alert-heading">No Matching Meal Plans</h5>
+                    <p class="mb-0">Try adjusting your search or filter criteria.</p>
+                </div>
+            </div>
+        </div>
     {% else %}
-        <div class="row">
-            <div class="col">
-                <div class="alert alert-info">
-                    <div class="d-flex align-items-center">
-                        <i class="fas fa-info-circle me-3 fs-4"></i>
-                        <div>
-                            <h5 class="alert-heading">No Meal Plans</h5>
-                            <p class="mb-0">You don't have any meal plans yet. Start by creating your first meal plan.</p>
-                        </div>
-                    </div>
+        <div class="alert alert-info">
+            <div class="d-flex align-items-center">
+                <i class="fas fa-info-circle me-3 fs-4"></i>
+                <div>
+                    <h5 class="alert-heading">No Meal Plans</h5>
+                    <p class="mb-0">You don't have any meal plans yet. Start by creating your first meal plan.</p>
                 </div>
             </div>
         </div>
     {% endif %}
+
+    <style>
+        .meal-plan-thumbnail {
+            height: 150px;
+            overflow: hidden;
+        }
+        
+        .meal-plan-thumbnail img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
+        .meal-plan-modal-image-container {
+            height: 400px;
+            overflow: hidden;
+        }
+        
+        .meal-plan-modal-image-container img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+        
+        .image-actions-overlay {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            opacity: 0.7;
+            transition: opacity 0.3s;
+        }
+        
+        .image-actions-overlay:hover {
+            opacity: 1;
+        }
+        
+        .carousel-control-prev-icon, .carousel-control-next-icon {
+            background-color: rgba(0,0,0,0.3);
+            border-radius: 50%;
+        }
+        
+        .meal-plan-preview {
+            max-height: 3rem;
+            overflow: hidden;
+        }
+    </style>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const searchInput = document.getElementById('mealPlanSearch');
+            const sortSelect = document.getElementById('mealPlanSort');
+            const timeFilters = document.querySelectorAll('input[name="timeFilter"]');
+            const mealPlanItems = document.querySelectorAll('.meal-plan-item');
+            const mealPlanContainer = document.getElementById('mealPlanContainer');
+            const noResultsMessage = document.getElementById('noResultsMessage');
+            
+            // Initialize tooltips
+            const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+            tooltipTriggerList.map(function (tooltipTriggerEl) {
+                return new bootstrap.Tooltip(tooltipTriggerEl);
+            });
+            
+            // Filter and sort function
+            function filterAndSortMealPlans() {
+                const searchTerm = searchInput.value.toLowerCase();
+                const sortValue = sortSelect.value;
+                const selectedTimeFilter = document.querySelector('input[name="timeFilter"]:checked').id;
+                
+                // Get current date for time-based filtering
+                const currentDate = new Date();
+                const currentDateString = currentDate.toISOString().split('T')[0];
+                
+                // Calculate date ranges for filters
+                const oneWeekLater = new Date();
+                oneWeekLater.setDate(currentDate.getDate() + 7);
+                const oneWeekLaterString = oneWeekLater.toISOString().split('T')[0];
+                
+                const oneMonthLater = new Date();
+                oneMonthLater.setMonth(currentDate.getMonth() + 1);
+                const oneMonthLaterString = oneMonthLater.toISOString().split('T')[0];
+                
+                // Filter items
+                let visibleItems = [];
+                let hiddenItems = [];
+                
+                mealPlanItems.forEach(item => {
+                    const name = item.dataset.name.toLowerCase();
+                    const date = item.dataset.date;
+                    
+                    // Apply search filter
+                    const matchesSearch = name.includes(searchTerm);
+                    
+                    // Apply time filter
+                    let matchesTimeFilter = true;
+                    if (selectedTimeFilter === 'thisWeek') {
+                        matchesTimeFilter = date >= currentDateString && date <= oneWeekLaterString;
+                    } else if (selectedTimeFilter === 'thisMonth') {
+                        matchesTimeFilter = date >= currentDateString && date <= oneMonthLaterString;
+                    } else if (selectedTimeFilter === 'upcoming') {
+                        matchesTimeFilter = date >= currentDateString;
+                    }
+                    
+                    if (matchesSearch && matchesTimeFilter) {
+                        visibleItems.push(item);
+                        item.style.display = '';
+                    } else {
+                        hiddenItems.push(item);
+                        item.style.display = 'none';
+                    }
+                });
+                
+                // Show or hide "no results" message
+                if (visibleItems.length === 0) {
+                    noResultsMessage.style.display = 'block';
+                } else {
+                    noResultsMessage.style.display = 'none';
+                }
+                
+                // Sort visible items
+                visibleItems.sort((a, b) => {
+                    const aName = a.dataset.name;
+                    const bName = b.dataset.name;
+                    const aDate = a.dataset.date;
+                    const bDate = b.dataset.date;
+                    
+                    switch (sortValue) {
+                        case 'name-asc':
+                            return aName.localeCompare(bName);
+                        case 'name-desc':
+                            return bName.localeCompare(aName);
+                        case 'date-asc':
+                            return aDate.localeCompare(bDate);
+                        case 'date-desc':
+                        default:
+                            return bDate.localeCompare(aDate);
+                    }
+                });
+                
+                // Reorder DOM elements
+                visibleItems.forEach(item => {
+                    mealPlanContainer.appendChild(item);
+                });
+            }
+            
+            // Add event listeners
+            searchInput.addEventListener('input', filterAndSortMealPlans);
+            sortSelect.addEventListener('change', filterAndSortMealPlans);
+            timeFilters.forEach(filter => {
+                filter.addEventListener('change', filterAndSortMealPlans);
+            });
+            
+            // Initial sort
+            filterAndSortMealPlans();
+        });
+    </script>
 </div>
 {% endblock %}

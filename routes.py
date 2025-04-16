@@ -1,12 +1,13 @@
 from flask import render_template, redirect, url_for, flash, jsonify, current_app, request
 from flask_login import login_required, current_user
-from app.modules.health.forms import ExerciseForm, DietEntryForm, GlucoseReadingForm, MedicationForm, MeasurementForm, DocumentUploadForm, AppointmentForm, MedicalConditionForm
-from app.modules.health.models import HealthRecord, HealthDocument, Medication, Appointment, MedicalCondition
+from app.modules.health.forms import ExerciseForm, DietEntryForm, GlucoseReadingForm, MedicationForm, MeasurementForm, DocumentUploadForm, AppointmentForm, MedicalConditionForm, MealPlanForm
+from app.modules.health.models import HealthRecord, HealthDocument, Medication, Appointment, MedicalCondition, HealthRecordImage
 from app import db
 from datetime import datetime
 from app.modules.health import health_tracker_bp
 import os
 from werkzeug.utils import secure_filename
+from app.services.celery_service import celery
 
 @health_tracker_bp.route('/exercises', methods=['GET', 'POST'])
 @login_required
@@ -444,3 +445,149 @@ def delete_condition(condition_id):
 def view_condition(condition_id):
     condition = MedicalCondition.query.filter_by(id=condition_id, user_id=current_user.id).first_or_404()
     return render_template('view_condition.html', condition=condition)
+
+@health_tracker_bp.route('/meal-plans/generate-image/<int:id>', methods=['POST'])
+@login_required
+def generate_meal_plan_image(id):
+    """Generate a new image for a meal plan using the image service."""
+    meal_plan = HealthRecord.query.filter_by(id=id, type='meal plan', user_id=current_user.id).first_or_404()
+    
+    # Create a descriptive prompt for the image generator
+    base_prompt = f"Appetizing food photography of {meal_plan.name}. Professional lighting, high-quality image of delicious healthy meal."
+    
+    # Add variety if there are existing images
+    if meal_plan.images:
+        # Ensure variety in generated images by modifying prompt slightly
+        variation = len(meal_plan.images) % 3
+        variations = [
+            "Top-down view, on a wooden table. ",
+            "Side angle view with natural lighting. ",
+            "Close-up shot showing texture and details. "
+        ]
+        prompt = variations[variation] + base_prompt
+    else:
+        prompt = base_prompt
+    
+    # Submit the image generation task
+    task = celery.send_task(
+        "generate_image",
+        args=[prompt],
+        kwargs={
+            "user_id": current_user.id,
+            "entity_type": "meal_plan",
+            "entity_id": meal_plan.id,
+            "module": "health_tracker",
+            "category": "meal_plans"
+        }
+    )
+    task_id = task.id
+    
+    flash('Image generation has started. Your meal plan image will appear shortly.', 'info')
+    return redirect(url_for('health_tracker.meal_plans'))
+
+@health_tracker_bp.route('/api/meal-plans/image-callback/<int:id>', methods=['POST'])
+def meal_plan_image_callback(id):
+    """Callback endpoint for the image generation service."""
+    data = request.json
+    if not data or 'image_url' not in data:
+        return jsonify({'error': 'Invalid data'}), 400
+    
+    meal_plan = HealthRecord.query.get_or_404(id)
+    
+    # Create new image record
+    new_image = HealthRecordImage(
+        image_url=data['image_url'],
+        record_id=meal_plan.id,
+        prompt=data.get('prompt', ''),
+        is_primary=len(meal_plan.images) == 0  # First image is primary
+    )
+    
+    db.session.add(new_image)
+    db.session.commit()
+    
+    return jsonify({'success': True})
+
+@health_tracker_bp.route('/meal-plans/set-primary-image/<int:record_id>/<int:image_id>', methods=['POST'])
+@login_required
+def set_primary_meal_plan_image(record_id, image_id):
+    """Set an image as the primary image for a meal plan."""
+    meal_plan = HealthRecord.query.filter_by(id=record_id, type='meal plan', user_id=current_user.id).first_or_404()
+    image = HealthRecordImage.query.filter_by(id=image_id, record_id=record_id).first_or_404()
+    
+    # Reset all images to non-primary
+    for img in meal_plan.images:
+        img.is_primary = False
+    
+    # Set the selected image as primary
+    image.is_primary = True
+    db.session.commit()
+    
+    flash('Primary image updated successfully.', 'success')
+    return redirect(url_for('health_tracker.meal_plans'))
+
+@health_tracker_bp.route('/meal-plans/delete-image/<int:record_id>/<int:image_id>', methods=['POST'])
+@login_required
+def delete_meal_plan_image(record_id, image_id):
+    """Delete an image from a meal plan."""
+    meal_plan = HealthRecord.query.filter_by(id=record_id, type='meal plan', user_id=current_user.id).first_or_404()
+    image = HealthRecordImage.query.filter_by(id=image_id, record_id=record_id).first_or_404()
+    
+    was_primary = image.is_primary
+    db.session.delete(image)
+    
+    # If deleted image was primary and other images exist, set a new primary
+    if was_primary and meal_plan.images:
+        meal_plan.images[0].is_primary = True
+    
+    db.session.commit()
+    
+    flash('Image deleted successfully.', 'success')
+    return redirect(url_for('health_tracker.meal_plans'))
+
+@health_tracker_bp.route('/meal-plans/create', methods=['GET', 'POST'])
+@login_required
+def create_meal_plan():
+    form = MealPlanForm()
+    
+    if form.validate_on_submit():
+        meal_plan = HealthRecord(
+            type='meal plan',
+            name=form.name.data,
+            date=form.date.data.strftime('%Y-%m-%d'),  # Convert date to string format
+            content=form.content.data,
+            user_id=current_user.id
+        )
+        
+        db.session.add(meal_plan)
+        db.session.commit()
+        
+        flash('Meal plan created successfully!', 'success')
+        return redirect(url_for('health_tracker.meal_plans'))
+    
+    return render_template('create_meal_plan.html', form=form, title='Create Meal Plan')
+
+@health_tracker_bp.route('/meal-plans/<int:id>/edit', methods=['GET', 'POST'])
+@login_required
+def edit_meal_plan(id):
+    meal_plan = HealthRecord.query.filter_by(id=id, type='meal plan', user_id=current_user.id).first_or_404()
+    
+    form = MealPlanForm(obj=meal_plan)
+    
+    if form.validate_on_submit():
+        meal_plan.name = form.name.data
+        meal_plan.date = form.date.data.strftime('%Y-%m-%d')
+        meal_plan.content = form.content.data
+        
+        db.session.commit()
+        
+        flash('Meal plan updated successfully!', 'success')
+        return redirect(url_for('health_tracker.meal_plans'))
+    
+    # For GET request, pre-populate the date field
+    if request.method == 'GET':
+        try:
+            form.date.data = datetime.strptime(meal_plan.date, '%Y-%m-%d').date()
+        except (ValueError, TypeError):
+            form.date.data = datetime.now().date()
+    
+    return render_template('edit_meal_plan.html', form=form, meal_plan=meal_plan, title='Edit Meal Plan')

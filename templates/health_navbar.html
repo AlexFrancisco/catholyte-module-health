@@ -5,18 +5,26 @@
             Health
         </a>
         <ul class="dropdown-menu" aria-labelledby="healthDropdown">
-            <li><a class="dropdown-item" href="{{ url_for('health_tracker.health') }}"><i class="bi bi-speedometer2"></i>Dashboard</a></li>
-            <li><a class="dropdown-item" href="{{ url_for('health_tracker.calendar') }}"><i class="bi bi-calendar"></i>Calendar</a></li>
-            <!-- Separator -->
+            <li><a class="dropdown-item" href="{{ url_for('health_tracker.health') }}"><i class="bi bi-speedometer2"></i> Dashboard</a></li>
+            <li><a class="dropdown-item" href="{{ url_for('health_tracker.calendar') }}"><i class="bi bi-calendar-week"></i> Calendar</a></li>
+            
+            <!-- Daily Tracking Section -->
             <div class="dropdown-divider"></div>
+            <li><span class="dropdown-item-text fw-bold"><small>DAILY TRACKING</small></span></li>
+            <li><a class="dropdown-item" href="{{ url_for('health_tracker.diet') }}"><i class="bi bi-journal-medical"></i> Food Journal</a></li>
+            <li><a class="dropdown-item" href="{{ url_for('health_tracker.glucose') }}"><i class="bi bi-graph-up"></i> Glucose Monitor</a></li>
+            <li><a class="dropdown-item" href="{{ url_for('health_tracker.measurements') }}"><i class="bi bi-rulers"></i> Measurements</a></li>
+            
+            <!-- Planning Section -->
+            <div class="dropdown-divider"></div>
+            <li><span class="dropdown-item-text fw-bold"><small>PLANNING</small></span></li>
             <li><a class="dropdown-item" href="{{ url_for('health_tracker.exercises') }}"><i class="bi bi-activity"></i> Exercise Library</a></li>
-            <li><a class="dropdown-item" href="{{ url_for('health_tracker.meal_plans') }}"><i class="bi bi-egg-fried"></i> Meal Plans</a></li>
-            <li><a class="dropdown-item" href="{{ url_for('health_tracker.diet') }}"><i class="bi bi-egg-fried"></i>Food Entries</a></li>
-            <li><a class="dropdown-item" href="{{ url_for('health_tracker.glucose') }}"><i class="bi bi-clipboard2-pulse-fill"></i>Glucose Readings</a></li>
-            <li><a class="dropdown-item" href="{{ url_for('health_tracker.medications') }}"><i class="bi bi-capsule-pill"></i>Medication List</a></li>
-            <li><a class="dropdown-item" href="{{ url_for('health_tracker.measurements') }}"><i class="bi bi-file-ruled"></i>Measurements</a></li>
+            <li><a class="dropdown-item" href="{{ url_for('health_tracker.meal_plans') }}"><i class="bi bi-calendar-check"></i> Meal Plans</a></li>
+            <li><a class="dropdown-item" href="{{ url_for('health_tracker.medications') }}"><i class="bi bi-capsule"></i> Medications</a></li>
+            
+            <!-- Documents Section -->
             <div class="dropdown-divider"></div>
-            <li><a class="dropdown-item" href="{{ url_for('health_tracker.documents') }}"><i class="bi bi-file-medical"></i>Medical Documents</a></li>
+            <li><a class="dropdown-item" href="{{ url_for('health_tracker.documents') }}"><i class="bi bi-file-medical"></i> Medical Documents</a></li>
         </ul>
     </li>
 {% endif %}

@@ -1,0 +1,135 @@
+{% extends "layouts/health_base.html" %}
+{% block health_content %}
+    <!-- Breadcrumbs -->
+    <nav aria-label="breadcrumb" class="mb-4">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ url_for('health_tracker.health') }}">Health Dashboard</a></li>
+            <li class="breadcrumb-item"><a href="{{ url_for('health_tracker.meal_plans') }}">Meal Plans</a></li>
+            <li class="breadcrumb-item active" aria-current="page">Edit Meal Plan</li>
+        </ol>
+    </nav>
+
+    <!-- Edit Form Card -->
+    <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h1 class="h4 mb-0">Edit Meal Plan</h1>
+            <span class="badge bg-primary">{{ meal_plan.date }}</span>
+        </div>
+        <div class="card-body">
+            <form method="POST" action="{{ url_for('health_tracker.edit_meal_plan', id=meal_plan.id) }}">
+                {{ form.hidden_tag() }}
+                
+                <div class="mb-3">
+                    {{ form.name.label(class="form-label") }}
+                    {{ form.name(class="form-control", placeholder="Enter meal plan name") }}
+                    {% if form.name.errors %}
+                        <div class="text-danger">
+                            {% for error in form.name.errors %}
+                                <small>{{ error }}</small>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+                </div>
+                
+                <div class="mb-3">
+                    {{ form.date.label(class="form-label") }}
+                    {{ form.date(class="form-control", type="date") }}
+                    {% if form.date.errors %}
+                        <div class="text-danger">
+                            {% for error in form.date.errors %}
+                                <small>{{ error }}</small>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+                </div>
+                
+                <div class="mb-3">
+                    {{ form.content.label(class="form-label") }}
+                    <div class="border rounded p-2 mb-2">
+                        <div id="toolbar"></div>
+                        <div id="editor"></div>
+                        {{ form.content(style="display: none;") }}
+                    </div>
+                    {% if form.content.errors %}
+                        <div class="text-danger">
+                            {% for error in form.content.errors %}
+                                <small>{{ error }}</small>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+                </div>
+                
+                {% if meal_plan.images %}
+                <div class="mb-3">
+                    <label class="form-label">Meal Plan Images</label>
+                    <div class="row g-2">
+                        {% for image in meal_plan.images %}
+                        <div class="col-md-3 col-sm-4 col-6">
+                            <div class="position-relative border rounded p-1">
+                                <img src="{{ image.image_url }}" class="img-thumbnail" alt="Meal plan image">
+                                <div class="position-absolute top-0 end-0 p-2">
+                                    {% if image.is_primary %}
+                                    <span class="badge bg-success">
+                                        <i class="fas fa-star"></i> Primary
+                                    </span>
+                                    {% else %}
+                                    <form action="{{ url_for('health_tracker.set_primary_meal_plan_image', record_id=meal_plan.id, image_id=image.id) }}" method="POST" class="d-inline">
+                                        <button type="submit" class="btn btn-sm btn-light" title="Set as primary">
+                                            <i class="fas fa-star"></i>
+                                        </button>
+                                    </form>
+                                    {% endif %}
+                                    <form action="{{ url_for('health_tracker.delete_meal_plan_image', record_id=meal_plan.id, image_id=image.id) }}" method="POST" class="d-inline">
+                                        <button type="submit" class="btn btn-sm btn-light" title="Delete image" onclick="return confirm('Delete this image?')">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+                
+                <div class="d-flex justify-content-between">
+                    <a href="{{ url_for('health_tracker.meal_plans') }}" class="btn btn-secondary">
+                        <i class="fas fa-arrow-left"></i> Back to Meal Plans
+                    </a>
+                    {{ form.submit(class="btn btn-primary") }}
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Rich Text Editor Integration -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Initialize Quill rich text editor
+            var quill = new Quill('#editor', {
+                theme: 'snow',
+                modules: {
+                    toolbar: [
+                        [{ 'header': [1, 2, 3, false] }],
+                        ['bold', 'italic', 'underline', 'strike'],
+                        [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+                        ['link'],
+                        ['clean']
+                    ]
+                },
+                placeholder: 'Enter meal plan details, ingredients, instructions, etc...',
+            });
+            
+            // Set initial content
+            const contentInput = document.querySelector('#content');
+            quill.root.innerHTML = contentInput.value;
+            
+            // Update hidden form field before submit
+            const form = document.querySelector('form');
+            form.onsubmit = function() {
+                contentInput.value = quill.root.innerHTML;
+                return true;
+            };
+        });
+    </script>
+{% endblock %}

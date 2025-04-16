@@ -130,3 +130,9 @@ class HealthGoalForm(FlaskForm):
     ], default='active')
     
     submit = SubmitField('Save Goal')
+
+class MealPlanForm(FlaskForm):
+    name = StringField('Meal Plan Name', validators=[DataRequired()])
+    date = DateField('Date', validators=[DataRequired()], format='%Y-%m-%d')
+    content = TextAreaField('Content', validators=[DataRequired()])
+    submit = SubmitField('Save Meal Plan')
