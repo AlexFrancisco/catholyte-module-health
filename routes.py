@@ -4,10 +4,12 @@ from app.modules.health.forms import ExerciseForm, DietEntryForm, GlucoseReading
 from app.modules.health.models import HealthRecord, HealthDocument, Medication, Appointment, MedicalCondition, HealthRecordImage
 from app import db
 from datetime import datetime
+import json
 from app.modules.health import health_tracker_bp
 import os
 from werkzeug.utils import secure_filename
 from app.services.celery_service import celery
+# Import the health LLM service
 
 @health_tracker_bp.route('/exercises', methods=['GET', 'POST'])
 @login_required
@@ -591,3 +593,54 @@ def edit_meal_plan(id):
             form.date.data = datetime.now().date()
     
     return render_template('edit_meal_plan.html', form=form, meal_plan=meal_plan, title='Edit Meal Plan')
+
+
+def generate_diet_entry_with_llm(meal_description):
+    """
+    Generate diet entry details using the health LLM service.
+    
+    Args:
+        meal_description: User's description of their meal
+        
+    Returns:
+        dict: Contains meal_name and estimated calories
+    """
+    # Initialize the health LLM service
+    health_llm_service = None
+    
+    # Use the service to generate diet entry
+    return health_llm_service.generate_diet_entry(meal_description)
+
+
+@health_tracker_bp.route('/diet/generate', methods=['POST'])
+@login_required
+def generate_diet_entry():
+    """Generate a diet entry using LLM based on user description."""
+    description = request.form.get('meal_description', '')
+    if not description:
+        flash('Please provide a meal description.', 'danger')
+        return redirect(url_for('health_tracker.diet'))
+    
+    try:
+        # Call LLM service to generate diet entry
+        result = generate_diet_entry_with_llm(description)
+        
+        # Create a form with the generated data
+        form = DietEntryForm()
+        form.meal_name.data = result['meal_name']
+        form.calories.data = result['calories']
+        form.date.data = datetime.now().date()
+        
+        # Get existing diet entries
+        diet_entries = HealthRecord.query.filter_by(type='diet', user_id=current_user.id).all()
+        
+        # Flash success message
+        flash(f'Generated diet entry for "{description}". You can edit before saving.', 'success')
+        
+        # Render the diet page with pre-filled form
+        return render_template('diet.html', form=form, diet_entries=diet_entries, 
+                              meal_description=description)
+    
+    except Exception as e:
+        flash(f'Error generating diet entry: {str(e)}', 'danger')
+        return redirect(url_for('health_tracker.diet'))

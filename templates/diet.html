@@ -3,6 +3,28 @@
 <div class="card container col-md-6">
     <div class="card-body">
         <h1>Diet Entries</h1>
+        
+        <!-- LLM Generation Form -->
+        <div class="card mb-4">
+            <div class="card-header">
+                Generate Diet Entry with AI
+            </div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('health_tracker.generate_diet_entry') }}">
+                    <div class="form-group">
+                        <label for="meal_description">Describe your meal:</label>
+                        <input type="text" class="form-control" id="meal_description" name="meal_description" 
+                               placeholder="e.g., 'I had a chicken sandwich, small fries, and a diet soda'" 
+                               value="{{ meal_description|default('') }}">
+                    </div>
+                    <button type="submit" class="btn btn-info mt-2">
+                        <i class="fas fa-magic"></i> Generate Entry
+                    </button>
+                </form>
+            </div>
+        </div>
+        
+        <!-- Manual Entry Form -->
         <form method="POST">
             {{ form.hidden_tag() }}
             <div class="form-group">
@@ -34,9 +56,7 @@
                     <td>{{ diet_entry.name }}</td>
                     <td>{{ diet_entry.value }}</td>
                     <td>
-                        <!-- Delete Form -->
                         <form action="{{ url_for('health_tracker.delete_diet_entry', id=diet_entry.id) }}" method="POST" style="display: inline;">
-              
                             <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('Are you sure you want to delete this entry?');">Delete</button>
                         </form>
                     </td>
