@@ -132,7 +132,7 @@ class HealthGoalForm(FlaskForm):
     submit = SubmitField('Save Goal')
 
 class MealPlanForm(FlaskForm):
-    name = StringField('Meal Plan Name', validators=[DataRequired()])
-    date = DateField('Date', validators=[DataRequired()], format='%Y-%m-%d')
-    content = TextAreaField('Content', validators=[DataRequired()])
-    submit = SubmitField('Save Meal Plan')
+    name = StringField('Name', validators=[DataRequired()])
+    date = DateField('Date', validators=[DataRequired()], default=datetime.now().date())
+    content = TextAreaField('Content', validators=[DataRequired()], render_kw={'rows': 15})
+    submit = SubmitField('Save')

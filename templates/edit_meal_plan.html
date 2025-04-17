@@ -1,4 +1,5 @@
 {% extends "layouts/health_base.html" %}
+
 {% block health_content %}
     <!-- Breadcrumbs -->
     <nav aria-label="breadcrumb" class="mb-4">
@@ -9,127 +10,101 @@
         </ol>
     </nav>
 
-    <!-- Edit Form Card -->
     <div class="card">
-        <div class="card-header d-flex justify-content-between align-items-center">
-            <h1 class="h4 mb-0">Edit Meal Plan</h1>
-            <span class="badge bg-primary">{{ meal_plan.date }}</span>
+        <div class="card-header">
+            <h2>Edit Meal Plan</h2>
         </div>
         <div class="card-body">
             <form method="POST" action="{{ url_for('health_tracker.edit_meal_plan', id=meal_plan.id) }}">
-                {{ form.hidden_tag() }}
+                {{ form.csrf_token }}
                 
                 <div class="mb-3">
-                    {{ form.name.label(class="form-label") }}
-                    {{ form.name(class="form-control", placeholder="Enter meal plan name") }}
+                    <label for="name" class="form-label">Plan Name</label>
+                    {{ form.name(class="form-control", id="name", placeholder="Enter a name for your meal plan") }}
                     {% if form.name.errors %}
-                        <div class="text-danger">
+                        <div class="invalid-feedback d-block">
                             {% for error in form.name.errors %}
-                                <small>{{ error }}</small>
+                                {{ error }}
                             {% endfor %}
                         </div>
                     {% endif %}
                 </div>
                 
                 <div class="mb-3">
-                    {{ form.date.label(class="form-label") }}
-                    {{ form.date(class="form-control", type="date") }}
+                    <label for="date" class="form-label">Date</label>
+                    {{ form.date(class="form-control", id="date", type="date") }}
                     {% if form.date.errors %}
-                        <div class="text-danger">
+                        <div class="invalid-feedback d-block">
                             {% for error in form.date.errors %}
-                                <small>{{ error }}</small>
+                                {{ error }}
                             {% endfor %}
                         </div>
                     {% endif %}
                 </div>
                 
                 <div class="mb-3">
-                    {{ form.content.label(class="form-label") }}
-                    <div class="border rounded p-2 mb-2">
-                        <div id="toolbar"></div>
-                        <div id="editor"></div>
-                        {{ form.content(style="display: none;") }}
-                    </div>
+                    <label for="content" class="form-label">Meal Plan Content</label>
+                    {{ form.content(class="form-control", id="content", rows="15") }}
                     {% if form.content.errors %}
-                        <div class="text-danger">
+                        <div class="invalid-feedback d-block">
                             {% for error in form.content.errors %}
-                                <small>{{ error }}</small>
+                                {{ error }}
                             {% endfor %}
                         </div>
                     {% endif %}
                 </div>
-                
-                {% if meal_plan.images %}
-                <div class="mb-3">
-                    <label class="form-label">Meal Plan Images</label>
-                    <div class="row g-2">
-                        {% for image in meal_plan.images %}
-                        <div class="col-md-3 col-sm-4 col-6">
-                            <div class="position-relative border rounded p-1">
-                                <img src="{{ image.image_url }}" class="img-thumbnail" alt="Meal plan image">
-                                <div class="position-absolute top-0 end-0 p-2">
-                                    {% if image.is_primary %}
-                                    <span class="badge bg-success">
-                                        <i class="fas fa-star"></i> Primary
-                                    </span>
-                                    {% else %}
-                                    <form action="{{ url_for('health_tracker.set_primary_meal_plan_image', record_id=meal_plan.id, image_id=image.id) }}" method="POST" class="d-inline">
-                                        <button type="submit" class="btn btn-sm btn-light" title="Set as primary">
-                                            <i class="fas fa-star"></i>
-                                        </button>
-                                    </form>
-                                    {% endif %}
-                                    <form action="{{ url_for('health_tracker.delete_meal_plan_image', record_id=meal_plan.id, image_id=image.id) }}" method="POST" class="d-inline">
-                                        <button type="submit" class="btn btn-sm btn-light" title="Delete image" onclick="return confirm('Delete this image?')">
-                                            <i class="fas fa-trash"></i>
-                                        </button>
-                                    </form>
-                                </div>
-                            </div>
-                        </div>
-                        {% endfor %}
-                    </div>
-                </div>
-                {% endif %}
                 
                 <div class="d-flex justify-content-between">
                     <a href="{{ url_for('health_tracker.meal_plans') }}" class="btn btn-secondary">
-                        <i class="fas fa-arrow-left"></i> Back to Meal Plans
+                        <i class="fas fa-arrow-left"></i> Cancel
                     </a>
-                    {{ form.submit(class="btn btn-primary") }}
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save"></i> Update Meal Plan
+                    </button>
                 </div>
             </form>
         </div>
     </div>
     
-    <!-- Rich Text Editor Integration -->
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            // Initialize Quill rich text editor
-            var quill = new Quill('#editor', {
-                theme: 'snow',
-                modules: {
-                    toolbar: [
-                        [{ 'header': [1, 2, 3, false] }],
-                        ['bold', 'italic', 'underline', 'strike'],
-                        [{ 'list': 'ordered'}, { 'list': 'bullet' }],
-                        ['link'],
-                        ['clean']
-                    ]
-                },
-                placeholder: 'Enter meal plan details, ingredients, instructions, etc...',
-            });
-            
-            // Set initial content
-            const contentInput = document.querySelector('#content');
-            quill.root.innerHTML = contentInput.value;
-            
-            // Update hidden form field before submit
-            const form = document.querySelector('form');
-            form.onsubmit = function() {
-                contentInput.value = quill.root.innerHTML;
-                return true;
-            };
+    <!-- Preview Modal -->
+    <div class="modal fade" id="previewModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Preview: <span id="previewTitle"></span></h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="previewContent" class="meal-plan-content"></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Make sure the content textarea is enabled
+        const contentArea = document.getElementById('content');
+        if (contentArea) {
+            contentArea.removeAttribute('disabled');
+        }
+        
+        // Initialize form submission handling to prevent accidental navigation
+        const form = document.querySelector('form');
+        form.addEventListener('submit', function(e) {
+            const contentValue = contentArea.value.trim();
+            if (!contentValue) {
+                e.preventDefault();
+                alert('Please add some content to your meal plan.');
+                contentArea.focus();
+            }
         });
-    </script>
+    });
+</script>
 {% endblock %}
