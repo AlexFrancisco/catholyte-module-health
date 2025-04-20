@@ -487,25 +487,26 @@ def generate_meal_plan_image(id):
     flash('Image generation has started. Your meal plan image will appear shortly.', 'info')
     return redirect(url_for('health_tracker.meal_plans'))
 
-@health_tracker_bp.route('/api/meal-plans/image-callback/<int:id>', methods=['POST'])
-def meal_plan_image_callback(id):
-    """Callback endpoint for the image generation service."""
+@health_tracker_bp.route('/api/meal-plans/image-callback/<int:meal_plan_id>', methods=['POST'])
+def meal_plan_image_callback(meal_plan_id):
+    # Get data from the request
     data = request.json
-    if not data or 'image_url' not in data:
-        return jsonify({'error': 'Invalid data'}), 400
+    image_url = data.get('image_url')
+    image_id = data.get('image_id')
     
-    meal_plan = HealthRecord.query.get_or_404(id)
+    meal_plan = MealPlan.query.get_or_404(meal_plan_id)
     
-    # Create new image record
-    new_image = HealthRecordImage(
-        image_url=data['image_url'],
-        record_id=meal_plan.id,
-        prompt=data.get('prompt', ''),
-        is_primary=len(meal_plan.images) == 0  # First image is primary
-    )
+    # Update the meal plan with the image URL
+    meal_plan.image_url = image_url
     
-    db.session.add(new_image)
-    db.session.commit()
+    # If we have an image_id, just link to the existing image instead of creating a new one
+    if image_id:
+        meal_plan.image_id = image_id
+        db.session.commit()
+        return jsonify({'success': True, 'linked_to_existing': True})
+    
+    # Otherwise, use your existing code to create a new image record
+    # (Only if no image_id is provided from the caller)
     
     return jsonify({'success': True})
 
