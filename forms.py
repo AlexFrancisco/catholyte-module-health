@@ -1,6 +1,6 @@
 from flask_wtf import FlaskForm
 from wtforms import StringField, SubmitField, IntegerField, FloatField, TextAreaField, BooleanField, SelectField, DateTimeField, DateField
-from wtforms.validators import DataRequired, Optional, Length
+from wtforms.validators import DataRequired, Optional, Length, Email, NumberRange, ValidationError
 from flask_wtf.file import FileField, FileAllowed
 from datetime import datetime
 
@@ -136,3 +136,32 @@ class MealPlanForm(FlaskForm):
     date = DateField('Date', validators=[DataRequired()], default=datetime.now().date())
     content = TextAreaField('Content', validators=[DataRequired()], render_kw={'rows': 15})
     submit = SubmitField('Save')
+
+class PhysicianForm(FlaskForm):
+    name = StringField('Name', validators=[DataRequired(), Length(max=128)])
+    specialty = StringField('Specialty', validators=[Length(max=128)])
+    practice_name = StringField('Practice/Hospital', validators=[Length(max=255)])
+    phone = StringField('Phone Number', validators=[Length(max=64)])
+    email = StringField('Email', validators=[Length(max=128), Optional(), Email()])
+    address = StringField('Address', validators=[Length(max=255)])
+    notes = TextAreaField('Notes')
+    is_primary = BooleanField('Primary Care Physician')
+    submit = SubmitField('Save Physician')
+
+class PrescriptionForm(FlaskForm):
+    medication_id = SelectField('Medication', coerce=int, validators=[DataRequired()])
+    physician_id = SelectField('Physician', coerce=int, validators=[Optional()], 
+                              choices=[(0, 'None')], validate_choice=False)
+    rx_number = StringField('Prescription Number', validators=[Length(max=64)])
+    prescribed_date = DateField('Prescribed Date', validators=[DataRequired()], default=datetime.now().date)
+    expiration_date = DateField('Expiration Date', validators=[Optional()])
+    quantity = IntegerField('Quantity', validators=[Optional(), NumberRange(min=1)])
+    refills = IntegerField('Total Refills', validators=[Optional(), NumberRange(min=0)], default=0)
+    refills_remaining = IntegerField('Refills Remaining', validators=[Optional(), NumberRange(min=0)], default=0)
+    instructions = TextAreaField('Instructions', validators=[Optional()])
+    is_active = BooleanField('Active', default=True)
+    submit = SubmitField('Save Prescription')
+    
+    def validate_refills_remaining(self, field):
+        if field.data > self.refills.data:
+            raise ValidationError('Remaining refills cannot exceed total refills')

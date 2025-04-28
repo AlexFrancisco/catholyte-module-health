@@ -187,3 +187,67 @@ class HealthGoal(db.Model):
             progress = (self.current_value / self.target_value) * 100
             
         return min(100, max(0, progress))  # Clamp between 0-100%
+
+class Physician(db.Model):
+    """Model for tracking healthcare providers/physicians"""
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(128), nullable=False)  # Doctor's name
+    specialty = db.Column(db.String(128), nullable=True)  # Medical specialty
+    practice_name = db.Column(db.String(255), nullable=True)  # Clinic/hospital/practice name
+    
+    # Contact information
+    phone = db.Column(db.String(64), nullable=True)
+    email = db.Column(db.String(128), nullable=True)
+    address = db.Column(db.String(255), nullable=True)
+    
+    # Notes and additional details
+    notes = db.Column(db.Text, nullable=True)
+    is_primary = db.Column(db.Boolean, default=False)  # Is this the primary care physician
+    
+    # Timestamps
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Foreign keys
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    
+    # Relationships
+    prescriptions = db.relationship('Prescription', back_populates='physician', lazy='dynamic')
+    
+    def __repr__(self):
+        return f"Physician('{self.name}', '{self.specialty}')"
+
+
+class Prescription(db.Model):
+    """Model for tracking medication prescriptions"""
+    id = db.Column(db.Integer, primary_key=True)
+    rx_number = db.Column(db.String(64), nullable=True)  # Prescription identifier
+    
+    # Prescription details
+    prescribed_date = db.Column(db.Date, nullable=False)
+    expiration_date = db.Column(db.Date, nullable=True)
+    quantity = db.Column(db.Integer, nullable=True)
+    refills = db.Column(db.Integer, default=0)
+    refills_remaining = db.Column(db.Integer, default=0)
+    instructions = db.Column(db.Text, nullable=True)  # Specific instructions
+    
+    # Status tracking
+    is_active = db.Column(db.Boolean, default=True)
+    last_filled_date = db.Column(db.Date, nullable=True)
+    notes = db.Column(db.Text, nullable=True)
+    
+    # Timestamps
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Foreign keys
+    medication_id = db.Column(db.Integer, db.ForeignKey('medication.id'), nullable=False)
+    physician_id = db.Column(db.Integer, db.ForeignKey('physician.id'), nullable=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    
+    # Relationships
+    medication = db.relationship('Medication', backref=db.backref('prescriptions', lazy='dynamic'))
+    physician = db.relationship('Physician', back_populates='prescriptions')
+    
+    def __repr__(self):
+        return f"Prescription(med='{self.medication.name}', rx='{self.rx_number}')"

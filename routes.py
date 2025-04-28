@@ -1,7 +1,11 @@
 from flask import render_template, redirect, url_for, flash, jsonify, current_app, request
 from flask_login import login_required, current_user
-from app.modules.health.forms import ExerciseForm, DietEntryForm, GlucoseReadingForm, MedicationForm, MeasurementForm, DocumentUploadForm, AppointmentForm, MedicalConditionForm, MealPlanForm
-from app.modules.health.models import HealthRecord, HealthDocument, Medication, Appointment, MedicalCondition, HealthRecordImage
+from app.modules.health.forms import (ExerciseForm, DietEntryForm, GlucoseReadingForm, 
+                                     MedicationForm, MeasurementForm, DocumentUploadForm, 
+                                     AppointmentForm, MedicalConditionForm, MealPlanForm,
+                                     PhysicianForm, PrescriptionForm)
+from app.modules.health.models import (HealthRecord, HealthDocument, Medication, Appointment, 
+                                      MedicalCondition, HealthRecordImage, Physician, Prescription)
 from app import db
 from datetime import datetime
 import json
@@ -9,7 +13,6 @@ from app.modules.health import health_tracker_bp
 import os
 from werkzeug.utils import secure_filename
 from app.services.celery_service import celery
-# Import the health LLM service
 
 @health_tracker_bp.route('/exercises', methods=['GET', 'POST'])
 @login_required
@@ -278,53 +281,235 @@ def delete_document(id):
     flash('Document deleted successfully!', 'success')
     return redirect(url_for('health_tracker.documents'))
 
+@health_tracker_bp.route('/physicians', methods=['GET', 'POST'])
+@login_required
+def physicians():
+    """View and manage physicians."""
+    form = PhysicianForm()
+    if form.validate_on_submit():
+        physician = Physician(
+            name=form.name.data,
+            specialty=form.specialty.data,
+            practice_name=form.practice_name.data,
+            phone=form.phone.data,
+            email=form.email.data,
+            address=form.address.data,
+            notes=form.notes.data,
+            is_primary=form.is_primary.data,
+            user_id=current_user.id
+        )
+        
+        # If this is marked as primary, unmark any existing primary physicians
+        if form.is_primary.data:
+            existing_primary = Physician.query.filter_by(
+                user_id=current_user.id, 
+                is_primary=True
+            ).all()
+            for doc in existing_primary:
+                doc.is_primary = False
+        
+        db.session.add(physician)
+        db.session.commit()
+        flash('Physician added successfully!', 'success')
+        return redirect(url_for('health_tracker.physicians'))
+    
+    physicians = Physician.query.filter_by(user_id=current_user.id).order_by(Physician.name).all()
+    return render_template('physicians.html', form=form, physicians=physicians)
+
+@health_tracker_bp.route('/physicians/<int:physician_id>/edit', methods=['GET', 'POST'])
+@login_required
+def edit_physician(physician_id):
+    """Edit an existing physician."""
+    physician = Physician.query.filter_by(id=physician_id, user_id=current_user.id).first_or_404()
+    form = PhysicianForm(obj=physician)
+    
+    if form.validate_on_submit():
+        # Check if primary status is changing
+        if form.is_primary.data and not physician.is_primary:
+            # If becoming primary, unmark other primary physicians
+            existing_primary = Physician.query.filter_by(
+                user_id=current_user.id, 
+                is_primary=True
+            ).all()
+            for doc in existing_primary:
+                doc.is_primary = False
+        
+        # Update the physician with form data
+        form.populate_obj(physician)
+        db.session.commit()
+        flash('Physician updated successfully!', 'success')
+        return redirect(url_for('health_tracker.physicians'))
+    
+    return render_template('edit_physician.html', form=form, physician=physician)
+
+@health_tracker_bp.route('/physicians/<int:physician_id>/delete', methods=['POST'])
+@login_required
+def delete_physician(physician_id):
+    """Delete a physician."""
+    physician = Physician.query.filter_by(id=physician_id, user_id=current_user.id).first_or_404()
+    
+    # Check if physician has related prescriptions
+    if physician.prescriptions.count() > 0:
+        flash('Cannot delete physician with active prescriptions. Please update the prescriptions first.', 'danger')
+        return redirect(url_for('health_tracker.physicians'))
+    
+    db.session.delete(physician)
+    db.session.commit()
+    flash('Physician deleted successfully!', 'success')
+    return redirect(url_for('health_tracker.physicians'))
+
 @health_tracker_bp.route('/medications', methods=['GET', 'POST'])
 @login_required
 def medications():
-    form = MedicationForm()
-    if form.validate_on_submit():
+    """View and manage medications and prescriptions."""
+    medication_form = MedicationForm()
+    prescription_form = PrescriptionForm()
+    
+    # Populate the physician and medication dropdowns for the prescription form
+    prescription_form.physician_id.choices = [
+        (p.id, p.name) for p in Physician.query.filter_by(user_id=current_user.id).all()
+    ]
+    prescription_form.medication_id.choices = [
+        (m.id, f"{m.name} ({m.strength})") for m in Medication.query.filter_by(user_id=current_user.id).all()
+    ]
+    
+    if medication_form.validate_on_submit():
         medication = Medication(
-            name=form.name.data,
-            strength=form.strength.data,
-            dosage_schedule=form.dosage_schedule.data,
-            timing=form.timing.data,
-            food_relation=form.food_relation.data,
-            description=form.description.data,
-            pill_description=form.pill_description.data,
-            active=form.active.data,
+            name=medication_form.name.data,
+            strength=medication_form.strength.data,
+            dosage_schedule=medication_form.dosage_schedule.data,
+            timing=medication_form.timing.data,
+            food_relation=medication_form.food_relation.data,
+            description=medication_form.description.data,
+            pill_description=medication_form.pill_description.data,
+            active=medication_form.active.data,
             user_id=current_user.id
         )
         db.session.add(medication)
         db.session.commit()
         flash('Medication added successfully!', 'success')
-        return redirect(url_for('health.medications'))
-    
-    # Get all medications for the current user
-    medications = Medication.query.filter_by(user_id=current_user.id).order_by(Medication.name).all()
-    return render_template('medications.html', form=form, medications=medications)
-
-@health_tracker_bp.route('/medications/<int:medication_id>/edit', methods=['GET', 'POST'])
-@login_required
-def edit_medication(medication_id):
-    medication = Medication.query.filter_by(id=medication_id, user_id=current_user.id).first_or_404()
-    form = MedicationForm(obj=medication)
-    
-    if form.validate_on_submit():
-        form.populate_obj(medication)
-        db.session.commit()
-        flash('Medication updated successfully!', 'success')
         return redirect(url_for('health_tracker.medications'))
     
-    return render_template('edit_medication.html', form=form, medication=medication)
+    # Get medications and prescriptions for the current user
+    medications = Medication.query.filter_by(user_id=current_user.id).order_by(Medication.name).all()
+    prescriptions = Prescription.query.filter_by(user_id=current_user.id).order_by(Prescription.prescribed_date.desc()).all()
+    
+    return render_template('medications.html', 
+                          medication_form=medication_form, 
+                          prescription_form=prescription_form,
+                          medications=medications,
+                          prescriptions=prescriptions)
 
-@health_tracker_bp.route('/medications/<int:medication_id>/delete', methods=['POST'])
+@health_tracker_bp.route('/prescriptions/add', methods=['POST'])
 @login_required
-def delete_medication(medication_id):
+def add_prescription():
+    """Add a new prescription."""
+    form = PrescriptionForm()
+    
+    # Populate the physician and medication dropdowns for validation
+    form.physician_id.choices = [
+        (p.id, p.name) for p in Physician.query.filter_by(user_id=current_user.id).all()
+    ]
+    form.medication_id.choices = [
+        (m.id, f"{m.name} ({m.strength})") for m in Medication.query.filter_by(user_id=current_user.id).all()
+    ]
+    
+    if form.validate_on_submit():
+        prescription = Prescription(
+            rx_number=form.rx_number.data,
+            prescribed_date=form.prescribed_date.data,
+            expiration_date=form.expiration_date.data,
+            quantity=form.quantity.data,
+            refills=form.refills.data,
+            refills_remaining=form.refills_remaining.data,
+            instructions=form.instructions.data,
+            is_active=form.is_active.data,
+            medication_id=form.medication_id.data,
+            physician_id=form.physician_id.data if form.physician_id.data else None,
+            user_id=current_user.id
+        )
+        db.session.add(prescription)
+        db.session.commit()
+        flash('Prescription added successfully!', 'success')
+    else:
+        for field, errors in form.errors.items():
+            for error in errors:
+                flash(f"{getattr(form, field).label.text}: {error}", 'danger')
+    
+    return redirect(url_for('health_tracker.medications'))
+
+@health_tracker_bp.route('/medications/<int:medication_id>/prescriptions', methods=['GET'])
+@login_required
+def get_medication_prescriptions(medication_id):
+    """Get all prescriptions for a medication (used in modal)."""
     medication = Medication.query.filter_by(id=medication_id, user_id=current_user.id).first_or_404()
-    db.session.delete(medication)
+    prescriptions = medication.prescriptions.order_by(Prescription.prescribed_date.desc()).all()
+    
+    return render_template('_prescription_details.html', 
+                          medication=medication, 
+                          prescriptions=prescriptions)
+
+@health_tracker_bp.route('/prescriptions/<int:prescription_id>/edit', methods=['GET', 'POST'])
+@login_required
+def edit_prescription(prescription_id):
+    """Edit a prescription."""
+    prescription = Prescription.query.filter_by(id=prescription_id, user_id=current_user.id).first_or_404()
+    form = PrescriptionForm(obj=prescription)
+    
+    # Populate the physician and medication dropdowns
+    form.physician_id.choices = [
+        (p.id, p.name) for p in Physician.query.filter_by(user_id=current_user.id).all()
+    ]
+    form.medication_id.choices = [
+        (m.id, f"{m.name} ({m.strength})") for m in Medication.query.filter_by(user_id=current_user.id).all()
+    ]
+    
+    if form.validate_on_submit():
+        form.populate_obj(prescription)
+        db.session.commit()
+        flash('Prescription updated successfully!', 'success')
+        return redirect(url_for('health_tracker.medications'))
+    
+    return render_template('edit_prescription.html', form=form, prescription=prescription)
+
+@health_tracker_bp.route('/prescriptions/<int:prescription_id>/delete', methods=['POST'])
+@login_required
+def delete_prescription(prescription_id):
+    """Delete a prescription."""
+    prescription = Prescription.query.filter_by(id=prescription_id, user_id=current_user.id).first_or_404()
+    db.session.delete(prescription)
     db.session.commit()
-    flash('Medication deleted successfully!', 'success')
-    return redirect(url_for('health.medications'))
+    flash('Prescription deleted successfully!', 'success')
+    return redirect(url_for('health_tracker.medications'))
+
+@health_tracker_bp.route('/prescriptions/refill', methods=['POST'])
+@login_required
+def refill_prescription():
+    """Record a prescription refill."""
+    prescription_id = request.form.get('prescription_id')
+    refill_date = datetime.strptime(request.form.get('refill_date'), '%Y-%m-%d').date()
+    refill_notes = request.form.get('refill_notes')
+    
+    prescription = Prescription.query.filter_by(id=prescription_id, user_id=current_user.id).first_or_404()
+    
+    if prescription.refills_remaining > 0:
+        prescription.refills_remaining -= 1
+        prescription.last_filled_date = refill_date
+        
+        # Append refill notes with date to existing notes
+        if refill_notes:
+            new_note = f"\n[Refill {refill_date.strftime('%Y-%m-%d')}] {refill_notes}"
+            if prescription.notes:
+                prescription.notes += new_note
+            else:
+                prescription.notes = new_note
+        
+        db.session.commit()
+        flash('Prescription refill recorded successfully!', 'success')
+    else:
+        flash('No refills remaining for this prescription.', 'warning')
+    
+    return redirect(url_for('health_tracker.medications'))
 
 @health_tracker_bp.route('/appointments', methods=['GET', 'POST'])
 @login_required
@@ -645,3 +830,233 @@ def generate_diet_entry():
     except Exception as e:
         flash(f'Error generating diet entry: {str(e)}', 'danger')
         return redirect(url_for('health_tracker.diet'))
+    
+@health_tracker_bp.route('/physicians', methods=['GET', 'POST'])
+@login_required
+def physicians():
+    """View and manage physicians."""
+    form = PhysicianForm()
+    if form.validate_on_submit():
+        physician = Physician(
+            name=form.name.data,
+            specialty=form.specialty.data,
+            practice_name=form.practice_name.data,
+            phone=form.phone.data,
+            email=form.email.data,
+            address=form.address.data,
+            notes=form.notes.data,
+            is_primary=form.is_primary.data,
+            user_id=current_user.id
+        )
+        
+        # If this is marked as primary, unmark any existing primary physicians
+        if form.is_primary.data:
+            existing_primary = Physician.query.filter_by(
+                user_id=current_user.id, 
+                is_primary=True
+            ).all()
+            for doc in existing_primary:
+                doc.is_primary = False
+        
+        db.session.add(physician)
+        db.session.commit()
+        flash('Physician added successfully!', 'success')
+        return redirect(url_for('health_tracker.physicians'))
+    
+    physicians = Physician.query.filter_by(user_id=current_user.id).order_by(Physician.name).all()
+    return render_template('physicians.html', form=form, physicians=physicians)
+
+@health_tracker_bp.route('/physicians/<int:physician_id>/edit', methods=['GET', 'POST'])
+@login_required
+def edit_physician(physician_id):
+    """Edit an existing physician."""
+    physician = Physician.query.filter_by(id=physician_id, user_id=current_user.id).first_or_404()
+    form = PhysicianForm(obj=physician)
+    
+    if form.validate_on_submit():
+        # Check if primary status is changing
+        if form.is_primary.data and not physician.is_primary:
+            # If becoming primary, unmark other primary physicians
+            existing_primary = Physician.query.filter_by(
+                user_id=current_user.id, 
+                is_primary=True
+            ).all()
+            for doc in existing_primary:
+                doc.is_primary = False
+        
+        # Update the physician with form data
+        form.populate_obj(physician)
+        db.session.commit()
+        flash('Physician updated successfully!', 'success')
+        return redirect(url_for('health_tracker.physicians'))
+    
+    return render_template('edit_physician.html', form=form, physician=physician)
+
+@health_tracker_bp.route('/physicians/<int:physician_id>/delete', methods=['POST'])
+@login_required
+def delete_physician(physician_id):
+    """Delete a physician."""
+    physician = Physician.query.filter_by(id=physician_id, user_id=current_user.id).first_or_404()
+    
+    # Check if physician has related prescriptions
+    if physician.prescriptions.count() > 0:
+        flash('Cannot delete physician with active prescriptions. Please update the prescriptions first.', 'danger')
+        return redirect(url_for('health_tracker.physicians'))
+    
+    db.session.delete(physician)
+    db.session.commit()
+    flash('Physician deleted successfully!', 'success')
+    return redirect(url_for('health_tracker.physicians'))
+
+@health_tracker_bp.route('/medications', methods=['GET', 'POST'])
+@login_required
+def medications():
+    """View and manage medications and prescriptions."""
+    medication_form = MedicationForm()
+    prescription_form = PrescriptionForm()
+    
+    # Populate the physician and medication dropdowns for the prescription form
+    prescription_form.physician_id.choices = [
+        (p.id, p.name) for p in Physician.query.filter_by(user_id=current_user.id).all()
+    ]
+    prescription_form.medication_id.choices = [
+        (m.id, f"{m.name} ({m.strength})") for m in Medication.query.filter_by(user_id=current_user.id).all()
+    ]
+    
+    if medication_form.validate_on_submit():
+        medication = Medication(
+            name=medication_form.name.data,
+            strength=medication_form.strength.data,
+            dosage_schedule=medication_form.dosage_schedule.data,
+            timing=medication_form.timing.data,
+            food_relation=medication_form.food_relation.data,
+            description=medication_form.description.data,
+            pill_description=medication_form.pill_description.data,
+            active=medication_form.active.data,
+            user_id=current_user.id
+        )
+        db.session.add(medication)
+        db.session.commit()
+        flash('Medication added successfully!', 'success')
+        return redirect(url_for('health_tracker.medications'))
+    
+    # Get medications and prescriptions for the current user
+    medications = Medication.query.filter_by(user_id=current_user.id).order_by(Medication.name).all()
+    prescriptions = Prescription.query.filter_by(user_id=current_user.id).order_by(Prescription.prescribed_date.desc()).all()
+    
+    return render_template('medications.html', 
+                          medication_form=medication_form, 
+                          prescription_form=prescription_form,
+                          medications=medications,
+                          prescriptions=prescriptions)
+
+@health_tracker_bp.route('/prescriptions/add', methods=['POST'])
+@login_required
+def add_prescription():
+    """Add a new prescription."""
+    form = PrescriptionForm()
+    
+    # Populate the physician and medication dropdowns for validation
+    form.physician_id.choices = [
+        (p.id, p.name) for p in Physician.query.filter_by(user_id=current_user.id).all()
+    ]
+    form.medication_id.choices = [
+        (m.id, f"{m.name} ({m.strength})") for m in Medication.query.filter_by(user_id=current_user.id).all()
+    ]
+    
+    if form.validate_on_submit():
+        prescription = Prescription(
+            rx_number=form.rx_number.data,
+            prescribed_date=form.prescribed_date.data,
+            expiration_date=form.expiration_date.data,
+            quantity=form.quantity.data,
+            refills=form.refills.data,
+            refills_remaining=form.refills_remaining.data,
+            instructions=form.instructions.data,
+            is_active=form.is_active.data,
+            medication_id=form.medication_id.data,
+            physician_id=form.physician_id.data if form.physician_id.data else None,
+            user_id=current_user.id
+        )
+        db.session.add(prescription)
+        db.session.commit()
+        flash('Prescription added successfully!', 'success')
+    else:
+        for field, errors in form.errors.items():
+            for error in errors:
+                flash(f"{getattr(form, field).label.text}: {error}", 'danger')
+    
+    return redirect(url_for('health_tracker.medications'))
+
+@health_tracker_bp.route('/medications/<int:medication_id>/prescriptions', methods=['GET'])
+@login_required
+def get_medication_prescriptions(medication_id):
+    """Get all prescriptions for a medication (used in modal)."""
+    medication = Medication.query.filter_by(id=medication_id, user_id=current_user.id).first_or_404()
+    prescriptions = medication.prescriptions.order_by(Prescription.prescribed_date.desc()).all()
+    
+    return render_template('_prescription_details.html', 
+                          medication=medication, 
+                          prescriptions=prescriptions)
+
+@health_tracker_bp.route('/prescriptions/<int:prescription_id>/edit', methods=['GET', 'POST'])
+@login_required
+def edit_prescription(prescription_id):
+    """Edit a prescription."""
+    prescription = Prescription.query.filter_by(id=prescription_id, user_id=current_user.id).first_or_404()
+    form = PrescriptionForm(obj=prescription)
+    
+    # Populate the physician and medication dropdowns
+    form.physician_id.choices = [
+        (p.id, p.name) for p in Physician.query.filter_by(user_id=current_user.id).all()
+    ]
+    form.medication_id.choices = [
+        (m.id, f"{m.name} ({m.strength})") for m in Medication.query.filter_by(user_id=current_user.id).all()
+    ]
+    
+    if form.validate_on_submit():
+        form.populate_obj(prescription)
+        db.session.commit()
+        flash('Prescription updated successfully!', 'success')
+        return redirect(url_for('health_tracker.medications'))
+    
+    return render_template('edit_prescription.html', form=form, prescription=prescription)
+
+@health_tracker_bp.route('/prescriptions/<int:prescription_id>/delete', methods=['POST'])
+@login_required
+def delete_prescription(prescription_id):
+    """Delete a prescription."""
+    prescription = Prescription.query.filter_by(id=prescription_id, user_id=current_user.id).first_or_404()
+    db.session.delete(prescription)
+    db.session.commit()
+    flash('Prescription deleted successfully!', 'success')
+    return redirect(url_for('health_tracker.medications'))
+
+@health_tracker_bp.route('/prescriptions/refill', methods=['POST'])
+@login_required
+def refill_prescription():
+    """Record a prescription refill."""
+    prescription_id = request.form.get('prescription_id')
+    refill_date = datetime.strptime(request.form.get('refill_date'), '%Y-%m-%d').date()
+    refill_notes = request.form.get('refill_notes')
+    
+    prescription = Prescription.query.filter_by(id=prescription_id, user_id=current_user.id).first_or_404()
+    
+    if prescription.refills_remaining > 0:
+        prescription.refills_remaining -= 1
+        prescription.last_filled_date = refill_date
+        
+        # Append refill notes with date to existing notes
+        if refill_notes:
+            new_note = f"\n[Refill {refill_date.strftime('%Y-%m-%d')}] {refill_notes}"
+            if prescription.notes:
+                prescription.notes += new_note
+            else:
+                prescription.notes = new_note
+        
+        db.session.commit()
+        flash('Prescription refill recorded successfully!', 'success')
+    else:
+        flash('No refills remaining for this prescription.', 'warning')
+    
+    return redirect(url_for('health_tracker.medications'))
