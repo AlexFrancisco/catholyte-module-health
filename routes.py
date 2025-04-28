@@ -679,7 +679,7 @@ def meal_plan_image_callback(meal_plan_id):
     image_url = data.get('image_url')
     image_id = data.get('image_id')
     
-    meal_plan = MealPlan.query.get_or_404(meal_plan_id)
+    meal_plan = HealthRecord.query.filter_by(id=meal_plan_id, type='meal plan').first_or_404()
     
     # Update the meal plan with the image URL
     meal_plan.image_url = image_url
