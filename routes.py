@@ -12,7 +12,7 @@ import json
 from app.modules.health import health_tracker_bp
 import os
 from werkzeug.utils import secure_filename
-from app.services.celery_service import celery
+from app.core.services.celery_config import celery
 
 @health_tracker_bp.route('/exercises', methods=['GET', 'POST'])
 @login_required
